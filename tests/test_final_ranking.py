@@ -53,6 +53,11 @@ class FakeCrossEncoderService:
         return [0.92, 0.61][: len(pairs)]
 
 
+class AggressiveCrossEncoderService:
+    async def score_pairs_async(self, pairs):
+        return [0.30, 0.99][: len(pairs)]
+
+
 class FakeEngagementService:
     async def score_candidate_async(self, candidate, parsed_jd):
         interest_lookup = {
@@ -83,6 +88,15 @@ class FakeEngagementService:
             explanation="Interest explanation",
             provider="deterministic",
         )
+
+
+class HighBuzzEngagementService(FakeEngagementService):
+    async def score_candidate_async(self, candidate, parsed_jd):
+        result = await super().score_candidate_async(candidate, parsed_jd)
+        if candidate.id == "cand-015":
+            result.interest_score = 95.0
+            result.flight_risk_score = 72.0
+        return result
 
 
 class FakeCommunicationService:
@@ -146,6 +160,26 @@ def test_final_ranking_results_include_flat_and_nested_outputs() -> None:
     assert result.interest_result.interest_score > 0
     assert result.summary
     assert result.recommendation
+
+
+def test_final_ranking_penalizes_missing_mandatory_skills_even_with_strong_auxiliary_signals() -> None:
+    parsed_jd = parse_job_description(
+        """
+        Need a Machine Learning Engineer with Python, FastAPI, PyTorch, Docker, AWS, MLflow,
+        and vector search.
+        """
+    )
+
+    rankings = FinalRankingService(
+        vector_store=FakeVectorStore(),
+        engagement_service=HighBuzzEngagementService(),
+        communication_service=FakeCommunicationService(),
+        cross_encoder_service=AggressiveCrossEncoderService(),
+    ).rank_candidates(parsed_jd, top_k_search=2, top_k_final=2)
+
+    assert rankings[0].candidate_id == "cand-002"
+    assert rankings[1].match_result.missing_core_skills
+    assert rankings[0].final_score > rankings[1].final_score
 
 
 def test_final_ranking_run_returns_pipeline_counts() -> None:

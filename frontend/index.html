@@ -307,9 +307,11 @@
             const match = candidate.match_result;
             const interest = candidate.interest_result;
             const rank = candidate.rank || (index + 1);
+            const technicalMatchScore = candidate.match_score || match.match_score;
             const finalTone = scoreColor(candidate.final_score);
-            const matchTone = scoreColor(candidate.match_score || match.match_score);
+            const matchTone = scoreColor(technicalMatchScore);
             const interestTone = scoreColor(candidate.interest_score || interest.interest_score);
+            const llmProvider = candidate.recruiter_outreach?.provider || 'not requested';
 
             return `
                 <article class="panel rounded-2xl p-5 sm:p-6 candidate-card">
@@ -323,19 +325,22 @@
                             <p class="text-sm text-slate-400 mt-1">${candidate.role_title} | ${match.total_experience_years} years</p>
                             <p class="text-sm text-slate-200/90 mt-4 leading-relaxed">${candidate.summary || candidate.final_explanation}</p>
                         </div>
-                        <div class="relative shrink-0 w-[70px] h-[70px]">
-                            ${scoreRingSvg(candidate.final_score, finalTone.ring)}
-                            <span class="absolute inset-0 grid place-items-center text-sm font-extrabold">${candidate.final_score.toFixed(1)}</span>
+                        <div class="shrink-0">
+                            <div class="relative w-[70px] h-[70px]">
+                                ${scoreRingSvg(candidate.final_score, finalTone.ring)}
+                                <span class="absolute inset-0 grid place-items-center text-sm font-extrabold">${candidate.final_score.toFixed(1)}</span>
+                            </div>
+                            <div class="mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-500 text-center">Final Score (Combined)</div>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
                         <div>
                             <div class="flex justify-between items-center text-xs mb-1">
-                                <span class="uppercase tracking-[0.16em] text-slate-500">Match</span>
-                                <span class="${matchTone.text} font-bold">${(candidate.match_score || match.match_score).toFixed(1)}</span>
+                                <span class="uppercase tracking-[0.16em] text-slate-500">Technical Match</span>
+                                <span class="${matchTone.text} font-bold">${technicalMatchScore.toFixed(1)}</span>
                             </div>
-                            ${progressBar(candidate.match_score || match.match_score, matchTone.bar)}
+                            ${progressBar(technicalMatchScore, matchTone.bar)}
                         </div>
                         <div>
                             <div class="flex justify-between items-center text-xs mb-1">
@@ -363,8 +368,8 @@
                             <div class="font-bold text-slate-100">${(candidate.flight_risk_score || 0).toFixed(1)}</div>
                         </div>
                         <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
-                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Provider</div>
-                            <div class="font-bold text-slate-100">${interest.provider || 'deterministic'}</div>
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">LLM Provider</div>
+                            <div class="font-bold text-slate-100">${llmProvider}</div>
                         </div>
                     </div>
 

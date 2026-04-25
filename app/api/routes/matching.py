@@ -21,6 +21,7 @@ def format_sse(event: str, data: dict) -> str:
 
 
 @router.post("/match", response_model=MatchResponse)
+@router.post("/match/", response_model=MatchResponse, include_in_schema=False)
 async def match_candidates(
     payload: MatchRequest,
     pipeline_service: MatchPipelineService = Depends(get_match_pipeline_service),
@@ -61,6 +62,7 @@ async def match_candidates(
 
 
 @router.post("/match/stream")
+@router.post("/match/stream/", include_in_schema=False)
 async def stream_match_candidates(
     payload: MatchRequest,
     pipeline_service: MatchPipelineService = Depends(get_match_pipeline_service),

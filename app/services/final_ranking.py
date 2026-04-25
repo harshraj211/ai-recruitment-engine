@@ -10,7 +10,7 @@ from app.services.candidate_store import build_candidate_search_text, load_candi
 from app.services.conversation_service import RecruiterCommunicationService
 from app.services.cross_encoder_service import CrossEncoderService
 from app.services.interest_scoring import PredictiveEngagementService
-from app.services.match_scoring import rank_candidates_by_match
+from app.services.match_scoring import apply_mandatory_skill_penalty, rank_candidates_by_match
 from app.services.vector_store import CandidateVectorStore, build_job_search_text
 
 logger = logging.getLogger(__name__)
@@ -177,6 +177,7 @@ class FinalRankingService:
                 + (DEFAULT_INTEREST_WEIGHT * interest_result.interest_score)
                 + (DEFAULT_CROSS_ENCODER_WEIGHT * (cross_encoder_score * 100.0))
             )
+            final_score = apply_mandatory_skill_penalty(final_score, match_result.core_skill_score)
 
             return FinalCandidateRanking(
                 candidate_id=match_result.candidate_id,

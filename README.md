@@ -9,6 +9,7 @@ Production-oriented upgrade of the original talent scouting prototype. The syste
 - `mandatory_skills`, `nice_to_have_skills`, `domain_knowledge`
 - Skill adjacency matching through `SkillGraphService`
 - Time-decayed skill evidence from candidate role history
+- JD-normalized skill coverage scoring based on required skills only
 - Hybrid L1 retrieval:
   - BM25 sparse search with `rank-bm25`
   - dual dense embeddings for profile and skill text
@@ -18,9 +19,11 @@ Production-oriented upgrade of the original talent scouting prototype. The syste
 - L2 re-ranking with `cross-encoder/ms-marco-MiniLM-L-6-v2`
 - Deterministic predictive engagement and flight-risk scoring
 - LLM use restricted to recruiter summaries and outreach
+- Outreach and summary prompts grounded to target-role and verified skill lists
 - PII masking before LLM prompts
 - SSE streaming endpoint for progressive frontend rendering
 - Pagination-ready API responses
+- Strong penalty for candidates missing mandatory skills
 
 ## Architecture
 
@@ -120,6 +123,12 @@ Response highlights:
 }
 ```
 
+Score semantics:
+
+- `final_score`: combined ranking score after technical match, engagement, cross-encoder contribution, and mandatory-skill penalty
+- `match_score`: technical match score only
+- `cross_encoder_score`: deep re-ranker signal shown separately from the combined score
+
 ### `POST /api/v1/match/stream`
 
 Returns `text/event-stream` with:
@@ -136,4 +145,4 @@ Returns `text/event-stream` with:
 .\\.venv\\Scripts\\python scripts\\live_api_test.py
 ```
 
-Current status: `29 passed`
+Current status: `35 passed`

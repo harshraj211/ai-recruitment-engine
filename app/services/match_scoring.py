@@ -13,6 +13,8 @@ DEFAULT_ROLE_WEIGHT = 0.15
 CORE_SKILL_WEIGHT = 2.0
 SECONDARY_SKILL_WEIGHT = 1.0
 MIN_SKILL_MATCH_THRESHOLD = 0.55
+MANDATORY_SKILL_PENALTY_THRESHOLD = 0.70
+MANDATORY_SKILL_PENALTY_MULTIPLIER = 0.60
 
 ROLE_FAMILY_KEYWORDS = {
     "machine learning": {"machine", "learning", "ml", "ai", "mlops", "scientist"},
@@ -133,13 +135,13 @@ def _score_skill_group(
     matched = []
     missing = []
     details = []
-    weighted_scores = []
+    matched_scores = []
     for required_skill in required_skills:
         best_skill, similarity = skill_graph_service.best_match(required_skill, candidate_skills)
         if best_skill is None or similarity < MIN_SKILL_MATCH_THRESHOLD:
             missing.append(required_skill)
             details.append(f"{required_skill}: missing")
-            weighted_scores.append(0.0)
+            matched_scores.append(0.0)
             continue
 
         recency = recency_weights.get(best_skill, 0.7)
@@ -149,9 +151,17 @@ def _score_skill_group(
             details.append(f"{required_skill}: exact ({evidence_score:.2f})")
         else:
             details.append(f"{required_skill}: matched via {best_skill} ({evidence_score:.2f})")
-        weighted_scores.append(evidence_score)
+        # Normalize against JD-required skills only: once a skill clears the threshold,
+        # it contributes its full required weight rather than being diluted by global evidence.
+        matched_scores.append(1.0)
 
-    return sum(weighted_scores) / len(required_skills), matched, missing, details
+    return sum(matched_scores) / len(required_skills), matched, missing, details
+
+
+def apply_mandatory_skill_penalty(score: float, core_skill_score: float) -> float:
+    if core_skill_score < MANDATORY_SKILL_PENALTY_THRESHOLD:
+        return score * MANDATORY_SKILL_PENALTY_MULTIPLIER
+    return score
 
 
 def calculate_weighted_skill_match(
@@ -261,8 +271,17 @@ def build_match_explanation(
         f"({candidate.role_title} vs {parsed_jd.role_title or 'unspecified role'})"
     )
     trajectory_summary = f"Career trajectory boost {trajectory_boost_score * 100:.1f}%."
+    penalty_summary = ""
+    if skill_breakdown.core_skill_score < MANDATORY_SKILL_PENALTY_THRESHOLD:
+        penalty_summary = (
+            f" Mandatory-skill penalty applied because core coverage is "
+            f"{skill_breakdown.core_skill_score * 100:.1f}%."
+        )
     final_summary = f"Final Match Score {match_score:.1f}%."
-    return f"{skill_summary}. {experience_summary}. {role_summary}. {trajectory_summary} {final_summary}"
+    return (
+        f"{skill_summary}. {experience_summary}. {role_summary}. {trajectory_summary}"
+        f"{penalty_summary} {final_summary}"
+    )
 
 
 def score_candidate_match(
@@ -292,7 +311,8 @@ def score_candidate_match(
         + (experience_weight * experience_match_score)
         + (role_weight * role_alignment_score)
     ) / total_weight
-    match_score = min(base_score + trajectory_boost_score, 1.0) * 100
+    penalized_base_score = apply_mandatory_skill_penalty(base_score, skill_breakdown.core_skill_score)
+    match_score = min(penalized_base_score + trajectory_boost_score, 1.0) * 100
 
     return CandidateMatchResult(
         candidate_id=candidate.id,
@@ -358,8 +378,9 @@ def rank_candidates_by_match(
     return sorted(
         results,
         key=lambda item: (
-            item.cross_encoder_score if item.cross_encoder_score is not None else -1.0,
             item.match_score,
+            item.core_skill_score,
+            item.cross_encoder_score if item.cross_encoder_score is not None else -1.0,
             item.skill_match_score,
             item.semantic_similarity_score if item.semantic_similarity_score is not None else -1.0,
             item.total_experience_years,

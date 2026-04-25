@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import re
 
 from app.core.config import get_settings
 from app.schemas.candidate import Candidate
@@ -9,8 +10,62 @@ from app.schemas.outreach import RecruiterOutreach
 from app.services.interest_scoring import CandidateInterestResult, calculate_salary_alignment
 from app.services.match_scoring import CandidateMatchResult
 from app.services.pii import mask_candidate_payload
+from app.services.skill_graph import normalize_skill
 
 logger = logging.getLogger(__name__)
+
+
+def build_prompt_candidate_payload(candidate: Candidate) -> dict:
+    payload = mask_candidate_payload(candidate)
+    payload["current_role_title"] = payload.pop("role_title", candidate.role_title)
+    return payload
+
+
+def _format_skill_list(skills: list[str]) -> str:
+    return ", ".join(skills) if skills else "none"
+
+
+def _normalize_text(value: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+]+", " ", value.lower())).strip()
+
+
+def _summary_mentions_contradictory_missing_skill(summary: str, matched_skills: list[str]) -> bool:
+    normalized_summary = _normalize_text(summary)
+    for skill in matched_skills:
+        normalized_skill = normalize_skill(skill)
+        if not normalized_skill:
+            continue
+        if any(
+            phrase in normalized_summary
+            for phrase in (
+                f"missing {normalized_skill}",
+                f"lacks {normalized_skill}",
+                f"without {normalized_skill}",
+                f"gap in {normalized_skill}",
+            )
+        ):
+            return True
+    return False
+
+
+def _outreach_uses_wrong_role_title(
+    message: str,
+    candidate_role_title: str,
+    target_role_title: str | None,
+) -> bool:
+    if not target_role_title:
+        return False
+
+    normalized_message = _normalize_text(message)
+    normalized_target_role = normalize_skill(target_role_title)
+    normalized_candidate_role = normalize_skill(candidate_role_title)
+    if not normalized_target_role or normalized_candidate_role == normalized_target_role:
+        return False
+
+    return (
+        normalized_candidate_role in normalized_message
+        and normalized_target_role not in normalized_message
+    )
 
 
 def build_recruiter_outreach_prompt(
@@ -19,22 +74,32 @@ def build_recruiter_outreach_prompt(
     match_result: CandidateMatchResult,
     interest_result: CandidateInterestResult,
 ) -> dict:
+    candidate_payload = build_prompt_candidate_payload(candidate)
     return {
-        "task": "Write a concise recruiter outreach email under 120 words.",
-        "candidate": mask_candidate_payload(candidate),
-        "role": parsed_jd.model_dump(),
+        "task": "Write a concise recruiter outreach email under 120 words for the target job role only.",
+        "candidate": candidate_payload,
+        "role": {
+            "target_role_title": parsed_jd.role_title,
+            "mandatory_skills": parsed_jd.mandatory_skills,
+            "nice_to_have_skills": parsed_jd.nice_to_have_skills,
+            "salary_range_usd": parsed_jd.salary_range_usd,
+            "work_mode": parsed_jd.work_mode,
+        },
         "signals": {
             "match_score": match_result.match_score,
             "interest_score": interest_result.interest_score,
             "salary_alignment": interest_result.salary_alignment,
             "availability_days": interest_result.availability_days,
             "matched_core_skills": match_result.matched_core_skills,
+            "matched_skills": match_result.matched_skills,
         },
         "rules": [
             "Do not include placeholders or markdown.",
             "Acknowledge strong fit and one concrete skill area.",
             "Avoid any protected or demographic references.",
             "Do not mention internal scores directly.",
+            "Reference only role.target_role_title when describing the opportunity.",
+            "Do not describe the opportunity using the candidate's current role title.",
         ],
     }
 
@@ -45,11 +110,12 @@ def build_summary_prompt(
     match_result: CandidateMatchResult,
     interest_result: CandidateInterestResult,
 ) -> dict:
+    candidate_payload = build_prompt_candidate_payload(candidate)
     return {
         "task": "Write one concise recruiter summary sentence under 35 words.",
-        "candidate": mask_candidate_payload(candidate),
+        "candidate": candidate_payload,
         "role": {
-            "role_title": parsed_jd.role_title,
+            "target_role_title": parsed_jd.role_title,
             "mandatory_skills": parsed_jd.mandatory_skills,
             "nice_to_have_skills": parsed_jd.nice_to_have_skills,
             "salary_range_usd": parsed_jd.salary_range_usd,
@@ -58,13 +124,18 @@ def build_summary_prompt(
             "match_score": match_result.match_score,
             "interest_score": interest_result.interest_score,
             "flight_risk_score": interest_result.flight_risk_score,
+            "matched_core_skills": match_result.matched_core_skills,
+            "matched_skills": match_result.matched_skills,
             "missing_core_skills": match_result.missing_core_skills,
+            "missing_skills": match_result.missing_skills,
             "salary_alignment": interest_result.salary_alignment,
         },
         "rules": [
             "Be factual and recruiter-friendly.",
             "Mention the strongest fit and the primary risk.",
             "Do not mention protected traits or PII.",
+            f"Verified matched skills: {_format_skill_list(match_result.matched_skills)}.",
+            f"Do NOT invent missing skills. Only use this list when mentioning gaps: {_format_skill_list(match_result.missing_skills)}.",
         ],
     }
 
@@ -152,7 +223,7 @@ class DeterministicCommunicationLLM(BaseCommunicationLLM):
 
         if "outreach" in task.lower():
             skill = (signals.get("matched_core_skills") or ["your background"])[0]
-            role_title = role.get("role_title") or "this role"
+            role_title = role.get("target_role_title") or role.get("role_title") or "this role"
             availability = signals.get("availability_days")
             timing = (
                 f" You also look available in roughly {availability} days."
@@ -196,6 +267,10 @@ class RecruiterCommunicationService:
         prompt = build_recruiter_outreach_prompt(candidate, parsed_jd, match_result, interest_result)
         try:
             message = await self.llm.generate_text(prompt, max_tokens=180)
+            if _outreach_uses_wrong_role_title(message, candidate.role_title, parsed_jd.role_title):
+                raise RuntimeError(
+                    "Generated outreach referenced the candidate's current role title instead of the target role."
+                )
             return RecruiterOutreach(
                 message=message,
                 provider=self.llm.provider,
@@ -221,6 +296,13 @@ class RecruiterCommunicationService:
         prompt = build_summary_prompt(candidate, parsed_jd, match_result, interest_result)
         try:
             summary = await self.llm.generate_text(prompt, max_tokens=90)
+            if _summary_mentions_contradictory_missing_skill(
+                summary,
+                match_result.matched_skills,
+            ):
+                raise RuntimeError(
+                    "Generated summary contradicted the verified matched skill list."
+                )
             return summary, self.llm.provider, None
         except Exception as exc:
             logger.warning("Summary generation fell back to deterministic mode: %s", exc)

@@ -44,6 +44,7 @@ Data / Models
 - Candidate schema now supports `current_company` and `role_history`.
 - Skill matching is adjacency-aware through `SkillGraphService`.
 - Skill evidence is time-decayed using candidate role history recency.
+- Skill coverage is normalized against JD-required skills only, so 7 matched out of 8 required skills scores near 0.875 rather than being diluted by unrelated evidence.
 - Retrieval is now hybrid:
   - BM25 sparse search over titles, skills, and companies
   - separate dense profile and skill embeddings
@@ -63,7 +64,10 @@ Data / Models
 - LLM usage is restricted to:
   - recruiter outreach generation
   - concise recruiter summaries
+- Outreach prompts reference only the target JD role title, not the candidate's current role title.
+- Summary prompts include verified matched and missing skill lists, plus a contradiction guard against hallucinated missing skills.
 - PII is masked before LLM prompts.
+- Final ranking applies a strong penalty when mandatory skill coverage drops below 70%.
 - API responses now include flattened product-facing fields:
   - `candidate_name`
   - `match_score`
@@ -77,6 +81,7 @@ Data / Models
   - `recommendation`
 - Pagination is supported.
 - Frontend now streams progress and candidate cards progressively via SSE.
+- Frontend score labels now distinguish `Final Score (Combined)` from `Technical Match`, and the provider label shows the actual outreach LLM provider.
 
 ## Key Services
 
@@ -122,7 +127,7 @@ Data / Models
 
 ## Current Test Status
 
-- `29 passed`
+- `35 passed`
 
 ## Run Locally
 

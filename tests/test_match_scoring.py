@@ -1,3 +1,5 @@
+import pytest
+
 from app.services.candidate_store import load_candidates
 from app.services.jd_parser import parse_job_description
 from app.services.match_scoring import (
@@ -23,6 +25,22 @@ def test_calculate_skill_match_returns_weighted_overlap_and_missing_skills() -> 
     assert "Python" in matched_skills
     assert "MLflow" in matched_skills
     assert "Vector Search" in missing_skills
+
+
+def test_calculate_skill_match_normalizes_against_required_jd_skills() -> None:
+    candidate = load_candidates()[1]
+    parsed_jd = parse_job_description(
+        """
+        We are hiring a Senior Machine Learning Engineer.
+        Required skills: Python, FastAPI, PyTorch, Docker, AWS, MLflow, Machine Learning, and Vector Search.
+        """
+    )
+
+    score, matched_skills, missing_skills = calculate_skill_match(parsed_jd, candidate)
+
+    assert len(matched_skills) == 7
+    assert missing_skills == ["Vector Search"]
+    assert score == pytest.approx(0.875, rel=1e-3)
 
 
 def test_calculate_experience_match_uses_piecewise_logic() -> None:
@@ -66,3 +84,25 @@ def test_rank_candidates_by_match_returns_highest_scores_first() -> None:
     assert ranked_results[0].candidate_id == "cand-002"
     assert ranked_results[0].match_score >= ranked_results[1].match_score
     assert "Python" in ranked_results[0].matched_skills
+
+
+def test_rank_candidates_by_match_penalizes_missing_mandatory_skills() -> None:
+    parsed_jd = parse_job_description(
+        """
+        We are hiring a Senior Machine Learning Engineer with 4+ years of experience.
+        Must have Python, FastAPI, PyTorch, Docker, AWS, MLflow, and vector search.
+        """
+    )
+    candidates = [load_candidates()[14], load_candidates()[1]]
+
+    ranked_results = rank_candidates_by_match(
+        parsed_jd,
+        candidates,
+        cross_encoder_lookup={
+            candidates[0].id: 0.99,
+            candidates[1].id: 0.25,
+        },
+    )
+
+    assert ranked_results[0].candidate_id == "cand-002"
+    assert ranked_results[0].core_skill_score > ranked_results[1].core_skill_score
