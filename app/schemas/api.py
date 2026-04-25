@@ -8,6 +8,7 @@ class MatchRequest(BaseModel):
     job_description: str = Field(min_length=20)
     top_k_search: int = Field(default=5, ge=1, le=20)
     top_k_final: int = Field(default=5, ge=1, le=10)
+    include_outreach: bool = False
 
 
 class MatchResponse(BaseModel):

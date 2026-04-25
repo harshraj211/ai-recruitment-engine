@@ -1,10 +1,12 @@
 import json
+from functools import lru_cache
 from pathlib import Path
 
 from app.core.config import get_settings
 from app.schemas.candidate import Candidate
 
 
+@lru_cache(maxsize=8)
 def load_candidates(data_path: str | None = None) -> list[Candidate]:
     """Load and validate candidate records from the local JSON dataset."""
     settings = get_settings()

@@ -1,12 +1,13 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class InterestScoreBreakdown(BaseModel):
-    sentiment_score: float = Field(ge=0, le=1)
-    confidence_score: float = Field(ge=0, le=1)
-    specificity_score: float = Field(ge=0, le=1)
-    salary_match_score: float = Field(ge=0, le=1)
+    salary_alignment_score: float = Field(ge=0, le=1)
     availability_score: float = Field(ge=0, le=1)
+    role_relevance_score: float = Field(ge=0, le=1)
+    engagement_probability_score: float = Field(ge=0, le=1)
 
 
 class CandidateInterestResult(BaseModel):
@@ -15,6 +16,8 @@ class CandidateInterestResult(BaseModel):
     role_title: str
     interest_score: float = Field(ge=0, le=100)
     breakdown: InterestScoreBreakdown
+    salary_alignment: Literal["aligned", "below_range", "above_range", "unknown"]
+    availability_days: int | None = None
+    model_version: str = "predicted-interest-v1"
     explanation: str
-    conversation_id: str
-    provider: str
+    provider: str = "deterministic"

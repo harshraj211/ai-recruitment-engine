@@ -87,6 +87,12 @@ WORK_MODE_ALIASES = (
     ("onsite", "onsite"),
 )
 
+CORE_SKILL_MARKERS = (
+    "must have",
+    "required",
+    "strong in",
+)
+
 EXPERIENCE_RANGE_PATTERN = re.compile(
     r"(\d+(?:\.\d+)?)\s*(?:-|to|–|—)\s*(\d+(?:\.\d+)?)\s*(?:\+|plus)?\s*(?:years|yrs)",
     flags=re.IGNORECASE,
@@ -221,6 +227,30 @@ def extract_skills(
     return [canonical for _, _, canonical in selected]
 
 
+def extract_core_skills(text: str, skills: list[str]) -> list[str]:
+    """Classify explicitly required skills without making every mentioned tool critical."""
+    if not skills:
+        return []
+
+    skill_lookup = {skill.lower(): skill for skill in skills}
+    core_skills: list[str] = []
+    core_skill_keys: set[str] = set()
+    marker_patterns = [compile_phrase_pattern(marker) for marker in CORE_SKILL_MARKERS]
+    segments = re.split(r"[.;]\s*", text)
+
+    for segment in segments:
+        if not any(pattern.search(segment) for pattern in marker_patterns):
+            continue
+
+        for segment_skill in extract_skills(segment):
+            canonical = skill_lookup.get(segment_skill.lower())
+            if canonical and canonical.lower() not in core_skill_keys:
+                core_skill_keys.add(canonical.lower())
+                core_skills.append(canonical)
+
+    return core_skills
+
+
 def extract_seniority(text: str) -> str | None:
     for alias, canonical in SENIORITY_ALIASES:
         if compile_phrase_pattern(alias).search(text):
@@ -268,13 +298,19 @@ def parse_job_description(raw_text: str) -> ParsedJobDescription:
     role_match = find_role_match(searchable_text)
     role_title = role_match[0] if role_match else None
     exclude_spans = [role_match[1]] if role_match else []
+    skills = extract_skills(searchable_text, exclude_spans=exclude_spans)
+    core_skills = extract_core_skills(searchable_text, skills)
+    core_skill_keys = {skill.lower() for skill in core_skills}
+    secondary_skills = [skill for skill in skills if skill.lower() not in core_skill_keys]
 
     return ParsedJobDescription(
         raw_text=normalized_text,
         role_title=role_title,
         seniority=seniority,
         min_experience_years=extract_min_experience_years(searchable_text, seniority),
-        skills=extract_skills(searchable_text, exclude_spans=exclude_spans),
+        skills=skills,
+        core_skills=core_skills,
+        secondary_skills=secondary_skills,
         salary_range_usd=extract_salary_range_usd(searchable_text),
         work_mode=extract_work_mode(searchable_text),
     )

@@ -8,4 +8,6 @@ class SemanticSearchResult(BaseModel):
     total_experience_years: float
     skills: list[str] = Field(default_factory=list)
     similarity_score: float
+    semantic_similarity_score: float | None = None
+    keyword_match_score: float | None = None
     profile_summary: str

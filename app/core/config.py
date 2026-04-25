@@ -13,7 +13,14 @@ class Settings(BaseSettings):
     groq_api_key: str = ""
     candidate_data_path: str = "data/candidates/candidates.json"
     faiss_index_path: str = "data/faiss/candidates.index"
+    faiss_index_type: str = "ivfflat"
+    faiss_nprobe: int = 4
+    hybrid_semantic_weight: float = 0.6
+    hybrid_keyword_weight: float = 0.4
     conversation_log_path: str = "data/conversations"
+    candidate_scoring_timeout_seconds: float = 10.0
+    llm_timeout_seconds: float = 20.0
+    llm_max_retries: int = 2
 
     model_config = SettingsConfigDict(
         env_file=".env",
