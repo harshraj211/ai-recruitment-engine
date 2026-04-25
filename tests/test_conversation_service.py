@@ -1,35 +1,16 @@
-import json
-from pathlib import Path
+import asyncio
 
-from app.schemas.conversation import ConversationAssessment, ConversationDraft
 from app.services.candidate_store import load_candidate_lookup
 from app.services.conversation_service import (
-    ConversationService,
-    MockConversationLLM,
+    DeterministicCommunicationLLM,
+    RecruiterCommunicationService,
+    build_recruiter_outreach_prompt,
+    build_summary_prompt,
     calculate_salary_alignment,
 )
+from app.services.interest_scoring import PredictiveEngagementService
 from app.services.jd_parser import parse_job_description
-
-
-class StubConversationLLM:
-    provider = "stub"
-    model_name = "stub-model"
-
-    def generate_draft(self, candidate, parsed_jd, recruiter_prompts):
-        return ConversationDraft(
-            consent_response="Yes, I can chat for a few minutes.",
-            interest_response="The role matches my Python and FastAPI experience quite well.",
-            salary_response="The shared budget is in line with what I am looking for.",
-            availability_response="I could start in about 21 days.",
-            summary="The candidate sounds interested and practical about next steps.",
-            assessment=ConversationAssessment(
-                consent_given=True,
-                interest_level="high",
-                sentiment="positive",
-                confidence="high",
-                specificity="high",
-            ),
-        )
+from app.services.match_scoring import score_candidate_match
 
 
 def test_calculate_salary_alignment_handles_common_cases() -> None:
@@ -39,53 +20,58 @@ def test_calculate_salary_alignment_handles_common_cases() -> None:
     assert calculate_salary_alignment(55000, []) == "unknown"
 
 
-def test_conversation_service_saves_transcript_and_signals(tmp_path: Path) -> None:
+def test_build_prompts_mask_candidate_name() -> None:
+    candidate = load_candidate_lookup()["cand-002"]
     parsed_jd = parse_job_description(
         """
-        We are hiring a Machine Learning Engineer with 4+ years of experience.
-        Required skills: Python, FastAPI, PyTorch, Docker, AWS, MLflow, and vector search.
+        We are hiring a Senior Machine Learning Engineer.
+        Required skills: Python, FastAPI, PyTorch, Docker, AWS, and vector search.
         Budget: $50,000 - $65,000 annually.
         """
     )
-    candidate = load_candidate_lookup()["cand-002"]
-    service = ConversationService(
-        llm=StubConversationLLM(),
-        storage_dir=str(tmp_path),
-    )
+    match_result = score_candidate_match(parsed_jd, candidate)
+    interest_result = PredictiveEngagementService().score_candidate(candidate, parsed_jd)
 
-    conversation = service.simulate_conversation(candidate, parsed_jd)
-
-    assert conversation.provider == "stub"
-    assert conversation.signals.salary_alignment == "aligned"
-    assert len(conversation.transcript) == 8
-    assert Path(conversation.storage_path).exists()
-
-    stored_payload = json.loads(Path(conversation.storage_path).read_text(encoding="utf-8"))
-    assert stored_payload["candidate_id"] == "cand-002"
-    assert stored_payload["signals"]["interest_level"] == "high"
-
-
-def test_mock_conversation_llm_produces_candidate_responses() -> None:
-    parsed_jd = parse_job_description(
-        """
-        We are hiring a Senior Machine Learning Engineer for an AI platform.
-        You should have 4+ years of experience.
-        Required skills: Python, FastAPI, PyTorch, Docker, AWS, MLflow, and vector search.
-        Budget: $50,000 - $65,000 annually.
-        """
-    )
-    candidate = load_candidate_lookup()["cand-002"]
-    draft = MockConversationLLM().generate_draft(
+    outreach_prompt = build_recruiter_outreach_prompt(
         candidate,
         parsed_jd,
-        recruiter_prompts={
-            "consent": "consent prompt",
-            "interest": "interest prompt",
-            "salary": "salary prompt",
-            "availability": "availability prompt",
-        },
+        match_result,
+        interest_result,
+    )
+    summary_prompt = build_summary_prompt(
+        candidate,
+        parsed_jd,
+        match_result,
+        interest_result,
     )
 
-    assert draft.assessment.interest_level == "high"
-    assert "$54,000" in draft.salary_response
-    assert "Python" in draft.interest_response
+    assert outreach_prompt["candidate"]["candidate_label"] != candidate.full_name
+    assert summary_prompt["candidate"]["candidate_label"] != candidate.full_name
+
+
+def test_deterministic_communication_llm_generates_recruiter_ready_text() -> None:
+    candidate = load_candidate_lookup()["cand-002"]
+    parsed_jd = parse_job_description(
+        """
+        We are hiring a Senior Machine Learning Engineer.
+        Required skills: Python, FastAPI, PyTorch, Docker, AWS, and vector search.
+        Budget: $50,000 - $65,000 annually.
+        """
+    )
+    match_result = score_candidate_match(parsed_jd, candidate)
+    interest_result = PredictiveEngagementService().score_candidate(candidate, parsed_jd)
+
+    service = RecruiterCommunicationService(llm=DeterministicCommunicationLLM())
+
+    outreach = asyncio.run(
+        service.generate_outreach(candidate, parsed_jd, match_result, interest_result)
+    )
+    summary, provider, fallback_reason = asyncio.run(
+        service.generate_summary(candidate, parsed_jd, match_result, interest_result)
+    )
+
+    assert outreach.provider == "deterministic"
+    assert "Machine Learning Engineer" in outreach.message
+    assert provider == "deterministic"
+    assert fallback_reason is None
+    assert summary

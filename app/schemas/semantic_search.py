@@ -10,4 +10,8 @@ class SemanticSearchResult(BaseModel):
     similarity_score: float
     semantic_similarity_score: float | None = None
     keyword_match_score: float | None = None
+    bm25_score: float | None = None
+    dense_profile_score: float | None = None
+    dense_skill_score: float | None = None
+    rrf_score: float | None = None
     profile_summary: str

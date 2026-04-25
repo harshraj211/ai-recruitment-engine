@@ -1,77 +1,83 @@
+import asyncio
 import json
-from datetime import datetime, timezone
-from pathlib import Path
-from uuid import uuid4
+import logging
 
 from app.core.config import get_settings
 from app.schemas.candidate import Candidate
-from app.schemas.conversation import (
-    CandidateConversation,
-    ConversationAssessment,
-    ConversationDraft,
-    ConversationSignals,
-    ConversationTurn,
-)
 from app.schemas.job_description import ParsedJobDescription
-from app.services.match_scoring import calculate_skill_match
+from app.schemas.outreach import RecruiterOutreach
+from app.services.interest_scoring import CandidateInterestResult, calculate_salary_alignment
+from app.services.match_scoring import CandidateMatchResult
+from app.services.pii import mask_candidate_payload
+
+logger = logging.getLogger(__name__)
 
 
-def calculate_salary_alignment(
-    salary_expectation_usd: int | None,
-    salary_range_usd: list[int],
-) -> str:
-    if salary_expectation_usd is None or len(salary_range_usd) != 2:
-        return "unknown"
-
-    low, high = sorted(salary_range_usd)
-    if low <= salary_expectation_usd <= high:
-        return "aligned"
-    if salary_expectation_usd < low:
-        return "below_range"
-    return "above_range"
-
-
-def build_recruiter_prompts(
+def build_recruiter_outreach_prompt(
+    candidate: Candidate,
     parsed_jd: ParsedJobDescription,
-    recruiter_name: str,
-) -> dict[str, str]:
-    role_title = parsed_jd.role_title or "this role"
-
-    salary_prompt = (
-        f"Our budget for this role is ${parsed_jd.salary_range_usd[0]:,} to "
-        f"${parsed_jd.salary_range_usd[1]:,} USD. Does that align with your expectations?"
-        if len(parsed_jd.salary_range_usd) == 2
-        else "What compensation range are you targeting for your next move?"
-    )
-
+    match_result: CandidateMatchResult,
+    interest_result: CandidateInterestResult,
+) -> dict:
     return {
-        "consent": (
-            f"Hi, I'm {recruiter_name}. I'm reaching out about a {role_title} opportunity. "
-            "Do you have a couple of minutes to chat?"
-        ),
-        "interest": (
-            f"What about this {role_title} role sounds interesting to you, "
-            "and how closely does it match your recent work?"
-        ),
-        "salary": salary_prompt,
-        "availability": "If there is mutual interest, when would you be available to start?",
+        "task": "Write a concise recruiter outreach email under 120 words.",
+        "candidate": mask_candidate_payload(candidate),
+        "role": parsed_jd.model_dump(),
+        "signals": {
+            "match_score": match_result.match_score,
+            "interest_score": interest_result.interest_score,
+            "salary_alignment": interest_result.salary_alignment,
+            "availability_days": interest_result.availability_days,
+            "matched_core_skills": match_result.matched_core_skills,
+        },
+        "rules": [
+            "Do not include placeholders or markdown.",
+            "Acknowledge strong fit and one concrete skill area.",
+            "Avoid any protected or demographic references.",
+            "Do not mention internal scores directly.",
+        ],
     }
 
 
-class BaseConversationLLM:
+def build_summary_prompt(
+    candidate: Candidate,
+    parsed_jd: ParsedJobDescription,
+    match_result: CandidateMatchResult,
+    interest_result: CandidateInterestResult,
+) -> dict:
+    return {
+        "task": "Write one concise recruiter summary sentence under 35 words.",
+        "candidate": mask_candidate_payload(candidate),
+        "role": {
+            "role_title": parsed_jd.role_title,
+            "mandatory_skills": parsed_jd.mandatory_skills,
+            "nice_to_have_skills": parsed_jd.nice_to_have_skills,
+            "salary_range_usd": parsed_jd.salary_range_usd,
+        },
+        "signals": {
+            "match_score": match_result.match_score,
+            "interest_score": interest_result.interest_score,
+            "flight_risk_score": interest_result.flight_risk_score,
+            "missing_core_skills": match_result.missing_core_skills,
+            "salary_alignment": interest_result.salary_alignment,
+        },
+        "rules": [
+            "Be factual and recruiter-friendly.",
+            "Mention the strongest fit and the primary risk.",
+            "Do not mention protected traits or PII.",
+        ],
+    }
+
+
+class BaseCommunicationLLM:
     provider = "base"
     model_name = "base"
 
-    def generate_draft(
-        self,
-        candidate: Candidate,
-        parsed_jd: ParsedJobDescription,
-        recruiter_prompts: dict[str, str],
-    ) -> ConversationDraft:
+    async def generate_text(self, prompt: dict, *, max_tokens: int) -> str:
         raise NotImplementedError
 
 
-class GroqConversationLLM(BaseConversationLLM):
+class AsyncGroqCommunicationLLM(BaseCommunicationLLM):
     provider = "groq"
 
     def __init__(
@@ -85,279 +91,148 @@ class GroqConversationLLM(BaseConversationLLM):
         self.api_key = api_key or settings.groq_api_key
         self.model_name = model_name or settings.groq_model
         self.temperature = settings.groq_temperature if temperature is None else temperature
+        self.timeout_seconds = settings.llm_timeout_seconds
+        self.max_retries = settings.llm_max_retries
 
-    def _build_messages(
-        self,
-        candidate: Candidate,
-        parsed_jd: ParsedJobDescription,
-        recruiter_prompts: dict[str, str],
-    ) -> list[dict[str, str]]:
-        system_prompt = """
-You are simulating a job candidate in a recruiting demo.
-Respond only with valid JSON.
-Do not include markdown or extra commentary.
-Use the candidate profile as the source of truth.
-Keep each candidate response natural, concise, and realistic.
-Return exactly this JSON shape:
-{
-  "consent_response": "string",
-  "interest_response": "string",
-  "salary_response": "string",
-  "availability_response": "string",
-  "summary": "string",
-  "assessment": {
-    "consent_given": true,
-    "interest_level": "high|medium|low",
-    "sentiment": "positive|neutral|negative",
-    "confidence": "high|medium|low",
-    "specificity": "high|medium|low"
-  }
-}
-""".strip()
-
-        user_prompt = json.dumps(
-            {
-                "task": "Generate candidate-side replies for a four-stage recruiter conversation.",
-                "candidate_profile": candidate.model_dump(),
-                "parsed_job_description": parsed_jd.model_dump(),
-                "recruiter_prompts": recruiter_prompts,
-                "rules": [
-                    "Candidate responses should fit the profile and current status.",
-                    "Mention concrete matching skills when appropriate.",
-                    "Salary response should reflect the candidate's expected salary.",
-                    "Availability response should reflect the candidate's availability_days.",
-                    "Summary should be one short paragraph.",
-                ],
-            },
-            indent=2,
-        )
-
-        return [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ]
-
-    def generate_draft(
-        self,
-        candidate: Candidate,
-        parsed_jd: ParsedJobDescription,
-        recruiter_prompts: dict[str, str],
-    ) -> ConversationDraft:
+    async def generate_text(self, prompt: dict, *, max_tokens: int) -> str:
         if not self.api_key:
             raise RuntimeError("GROQ_API_KEY is not configured.")
 
         try:
-            from groq import Groq
+            from groq import AsyncGroq
         except ImportError as exc:
             raise RuntimeError(
                 "groq is not installed for this Python environment. "
                 "Use Python 3.11 and run `pip install -r requirements.txt`."
             ) from exc
 
-        client = Groq(api_key=self.api_key)
-        completion = client.chat.completions.create(
-            messages=self._build_messages(candidate, parsed_jd, recruiter_prompts),
-            model=self.model_name,
-            temperature=self.temperature,
-            response_format={"type": "json_object"},
-            max_completion_tokens=900,
-            seed=7,
-        )
-
-        content = completion.choices[0].message.content or "{}"
-        try:
-            return ConversationDraft.model_validate_json(content)
-        except Exception as exc:
-            raise RuntimeError(f"Groq returned invalid conversation JSON: {content}") from exc
-
-
-class MockConversationLLM(BaseConversationLLM):
-    provider = "mock"
-    model_name = "mock-local"
-
-    def generate_draft(
-        self,
-        candidate: Candidate,
-        parsed_jd: ParsedJobDescription,
-        recruiter_prompts: dict[str, str],
-    ) -> ConversationDraft:
-        skill_match_score, matched_skills, missing_skills = calculate_skill_match(parsed_jd, candidate)
-        salary_alignment = calculate_salary_alignment(
-            candidate.expected_salary_usd,
-            parsed_jd.salary_range_usd,
-        )
-
-        if candidate.current_status == "open_to_work" and skill_match_score >= 0.5:
-            interest_level = "high"
-            sentiment = "positive"
-            confidence = "high"
-        elif candidate.current_status in {"exploring", "passive"} and skill_match_score >= 0.3:
-            interest_level = "medium"
-            sentiment = "neutral"
-            confidence = "medium"
-        else:
-            interest_level = "low"
-            sentiment = "negative"
-            confidence = "low"
-
-        specificity = "high" if len(matched_skills) >= 2 else "medium"
-        consent_given = interest_level != "low"
-
-        if matched_skills:
-            skills_text = ", ".join(matched_skills[:3])
-            interest_response = (
-                f"Yes, I'm interested because the role lines up well with my recent work in {skills_text}. "
-                f"My background as a {candidate.role_title} feels relevant here."
-            )
-        else:
-            interest_response = (
-                "I would need more detail to judge the fit because the role overlaps only partially "
-                "with my recent work."
-            )
-
-        if salary_alignment == "aligned":
-            salary_response = (
-                f"My target is around ${candidate.expected_salary_usd:,} USD, "
-                "so your range looks workable."
-            )
-        elif salary_alignment == "above_range":
-            salary_response = (
-                f"I'm targeting about ${candidate.expected_salary_usd:,} USD, "
-                "which is a bit above the shared range, though I could discuss total scope."
-            )
-        elif salary_alignment == "below_range":
-            salary_response = (
-                f"I'm looking for around ${candidate.expected_salary_usd:,} USD, "
-                "so the budget is comfortably within range for me."
-            )
-        else:
-            salary_response = f"I'm targeting around ${candidate.expected_salary_usd:,} USD."
-
-        availability_response = (
-            f"I would likely be able to start in about {candidate.availability_days} days."
-        )
-
-        summary = (
-            f"{candidate.full_name} showed {interest_level} interest, with a {sentiment} tone. "
-            f"Primary overlap came from {', '.join(matched_skills[:3]) if matched_skills else 'limited skill overlap'}."
-        )
-
-        return ConversationDraft(
-            consent_response=(
-                "Yes, I can spare a few minutes to learn more about the opportunity."
-                if consent_given
-                else "I appreciate the message, but I am not the right fit to continue right now."
-            ),
-            interest_response=interest_response,
-            salary_response=salary_response,
-            availability_response=availability_response,
-            summary=summary,
-            assessment=ConversationAssessment(
-                consent_given=consent_given,
-                interest_level=interest_level,
-                sentiment=sentiment,
-                confidence=confidence,
-                specificity=specificity,
-            ),
-        )
-
-
-class ConversationService:
-    def __init__(
-        self,
-        *,
-        llm: BaseConversationLLM | None = None,
-        storage_dir: str | None = None,
-    ) -> None:
-        settings = get_settings()
-        self.storage_dir = Path(storage_dir or settings.conversation_log_path)
-        self.llm = llm or self._build_default_llm()
-
-    def _build_default_llm(self) -> BaseConversationLLM:
-        settings = get_settings()
-        if settings.groq_api_key:
-            return GroqConversationLLM()
-        return MockConversationLLM()
-
-    def _build_transcript(
-        self,
-        recruiter_prompts: dict[str, str],
-        draft: ConversationDraft,
-    ) -> list[ConversationTurn]:
-        return [
-            ConversationTurn(stage="consent", speaker="recruiter", message=recruiter_prompts["consent"]),
-            ConversationTurn(stage="consent", speaker="candidate", message=draft.consent_response),
-            ConversationTurn(stage="interest", speaker="recruiter", message=recruiter_prompts["interest"]),
-            ConversationTurn(stage="interest", speaker="candidate", message=draft.interest_response),
-            ConversationTurn(stage="salary", speaker="recruiter", message=recruiter_prompts["salary"]),
-            ConversationTurn(stage="salary", speaker="candidate", message=draft.salary_response),
-            ConversationTurn(
-                stage="availability",
-                speaker="recruiter",
-                message=recruiter_prompts["availability"],
-            ),
-            ConversationTurn(
-                stage="availability",
-                speaker="candidate",
-                message=draft.availability_response,
-            ),
+        client = AsyncGroq(api_key=self.api_key)
+        messages = [
+            {
+                "role": "system",
+                "content": (
+                    "You are a recruiting copilot. Respond with plain text only. "
+                    "Keep responses concise, grounded in the provided structured data, "
+                    "and avoid protected-class or demographic inferences."
+                ),
+            },
+            {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
         ]
 
-    def _save_conversation(self, conversation: CandidateConversation) -> str:
-        self.storage_dir.mkdir(parents=True, exist_ok=True)
-        output_path = self.storage_dir / f"{conversation.conversation_id}.json"
-        output_path.write_text(
-            conversation.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
-        return str(output_path)
+        last_error: Exception | None = None
+        for attempt in range(1, self.max_retries + 2):
+            try:
+                completion = await asyncio.wait_for(
+                    client.chat.completions.create(
+                        messages=messages,
+                        model=self.model_name,
+                        temperature=self.temperature,
+                        max_completion_tokens=max_tokens,
+                    ),
+                    timeout=self.timeout_seconds,
+                )
+                return (completion.choices[0].message.content or "").strip()
+            except Exception as exc:
+                last_error = exc
+                logger.warning("Groq request failed on attempt %s: %s", attempt, exc)
+                if attempt <= self.max_retries:
+                    await asyncio.sleep(0.4 * attempt)
 
-    def simulate_conversation(
+        raise RuntimeError(f"Groq request failed after retries: {last_error}") from last_error
+
+
+class DeterministicCommunicationLLM(BaseCommunicationLLM):
+    provider = "deterministic"
+    model_name = "rule-based"
+
+    async def generate_text(self, prompt: dict, *, max_tokens: int) -> str:
+        task = prompt.get("task", "")
+        signals = prompt.get("signals", {})
+        role = prompt.get("role", {})
+
+        if "outreach" in task.lower():
+            skill = (signals.get("matched_core_skills") or ["your background"])[0]
+            role_title = role.get("role_title") or "this role"
+            availability = signals.get("availability_days")
+            timing = (
+                f" You also look available in roughly {availability} days."
+                if availability is not None
+                else ""
+            )
+            return (
+                f"Hi, I am reaching out about a {role_title} opportunity because your experience in "
+                f"{skill} stands out as a strong fit for the role requirements.{timing} "
+                "If the scope looks relevant, I would love to share more details."
+            )
+
+        missing = signals.get("missing_core_skills") or signals.get("missing_skills") or []
+        strongest_fit = (signals.get("matched_core_skills") or ["strong ML/backend alignment"])[0]
+        risk = (
+            f"missing {missing[0]}"
+            if missing
+            else f"salary alignment is {signals.get('salary_alignment', 'unknown')}"
+        )
+        return f"Strong fit in {strongest_fit}, with a watch-out that {risk}."
+
+
+class RecruiterCommunicationService:
+    def __init__(self, llm: BaseCommunicationLLM | None = None) -> None:
+        settings = get_settings()
+        if llm is not None:
+            self.llm = llm
+        elif settings.groq_api_key:
+            self.llm = AsyncGroqCommunicationLLM()
+        else:
+            self.llm = DeterministicCommunicationLLM()
+        self.fallback_llm = DeterministicCommunicationLLM()
+
+    async def generate_outreach(
         self,
         candidate: Candidate,
         parsed_jd: ParsedJobDescription,
-        *,
-        recruiter_name: str = "Talent Scout Bot",
-    ) -> CandidateConversation:
-        recruiter_prompts = build_recruiter_prompts(parsed_jd, recruiter_name)
+        match_result: CandidateMatchResult,
+        interest_result: CandidateInterestResult,
+    ) -> RecruiterOutreach:
+        prompt = build_recruiter_outreach_prompt(candidate, parsed_jd, match_result, interest_result)
         try:
-            draft = self.llm.generate_draft(candidate, parsed_jd, recruiter_prompts)
-        except Exception:
-            # Fall back to local deterministic simulation so ranking does not fail
-            # when an external provider is unavailable or slow.
-            fallback_llm = MockConversationLLM()
-            draft = fallback_llm.generate_draft(candidate, parsed_jd, recruiter_prompts)
+            message = await self.llm.generate_text(prompt, max_tokens=180)
+            return RecruiterOutreach(
+                message=message,
+                provider=self.llm.provider,
+                model=self.llm.model_name,
+            )
+        except Exception as exc:
+            logger.warning("Outreach generation fell back to deterministic mode: %s", exc)
+            message = await self.fallback_llm.generate_text(prompt, max_tokens=180)
+            return RecruiterOutreach(
+                message=message,
+                provider=self.fallback_llm.provider,
+                model=self.fallback_llm.model_name,
+                fallback_reason=str(exc),
+            )
 
-        conversation = CandidateConversation(
-            conversation_id=f"{candidate.id}-{uuid4().hex[:8]}",
-            candidate_id=candidate.id,
-            full_name=candidate.full_name,
-            role_title=candidate.role_title,
-            provider=self.llm.provider,
-            model=self.llm.model_name,
-            created_at=datetime.now(timezone.utc).isoformat(),
-            summary=draft.summary,
-            transcript=self._build_transcript(recruiter_prompts, draft),
-            signals=ConversationSignals(
-                consent_given=draft.assessment.consent_given,
-                interest_level=draft.assessment.interest_level,
-                sentiment=draft.assessment.sentiment,
-                confidence=draft.assessment.confidence,
-                specificity=draft.assessment.specificity,
-                salary_expectation_usd=candidate.expected_salary_usd,
-                salary_alignment=calculate_salary_alignment(
-                    candidate.expected_salary_usd,
-                    parsed_jd.salary_range_usd,
-                ),
-                availability_days=candidate.availability_days,
-            ),
-            storage_path="",
-        )
+    async def generate_summary(
+        self,
+        candidate: Candidate,
+        parsed_jd: ParsedJobDescription,
+        match_result: CandidateMatchResult,
+        interest_result: CandidateInterestResult,
+    ) -> tuple[str, str, str | None]:
+        prompt = build_summary_prompt(candidate, parsed_jd, match_result, interest_result)
+        try:
+            summary = await self.llm.generate_text(prompt, max_tokens=90)
+            return summary, self.llm.provider, None
+        except Exception as exc:
+            logger.warning("Summary generation fell back to deterministic mode: %s", exc)
+            summary = await self.fallback_llm.generate_text(prompt, max_tokens=90)
+            return summary, self.fallback_llm.provider, str(exc)
 
-        storage_path = self._save_conversation(conversation)
-        conversation.storage_path = storage_path
-        Path(storage_path).write_text(
-            conversation.model_dump_json(indent=2),
-            encoding="utf-8",
-        )
-        return conversation
+
+__all__ = [
+    "AsyncGroqCommunicationLLM",
+    "DeterministicCommunicationLLM",
+    "RecruiterCommunicationService",
+    "build_recruiter_outreach_prompt",
+    "build_summary_prompt",
+    "calculate_salary_alignment",
+]

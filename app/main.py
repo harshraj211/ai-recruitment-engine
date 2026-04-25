@@ -1,3 +1,4 @@
+import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -18,8 +19,16 @@ def ensure_runtime_dirs() -> None:
         Path(relative_path).mkdir(parents=True, exist_ok=True)
 
 
+def configure_logging() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    )
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    configure_logging()
     ensure_runtime_dirs()
     yield
 
@@ -48,12 +57,13 @@ app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 
 @app.get("/api")
-def api_info() -> dict[str, str]:
+async def api_info() -> dict[str, str]:
     return {
         "message": "Talent scouting backend is running.",
         "docs_url": "/docs",
         "health_url": f"{settings.api_v1_prefix}/health",
         "match_url": f"{settings.api_v1_prefix}/match",
+        "stream_match_url": f"{settings.api_v1_prefix}/match/stream",
         "stage": "step_9_api_ready",
     }
 

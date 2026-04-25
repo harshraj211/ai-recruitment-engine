@@ -1,15 +1,19 @@
-from pathlib import Path
-
-from app.schemas.conversation import CandidateConversation, ConversationSignals
-from app.schemas.final_ranking import FinalCandidateRanking
+from app.schemas.interest_scoring import CandidateInterestResult, InterestScoreBreakdown
+from app.schemas.outreach import RecruiterOutreach
+from app.schemas.semantic_search import SemanticSearchResult
 from app.services.final_ranking import FinalRankingService
 from app.services.jd_parser import parse_job_description
 
 
 class FakeVectorStore:
     def search_parsed_job(self, parsed_jd, top_k=5):
-        from app.schemas.semantic_search import SemanticSearchResult
+        return self._results()[:top_k]
 
+    async def search_parsed_job_async(self, parsed_jd, top_k=5):
+        return self._results()[:top_k]
+
+    @staticmethod
+    def _results():
         return [
             SemanticSearchResult(
                 candidate_id="cand-002",
@@ -17,16 +21,13 @@ class FakeVectorStore:
                 role_title="Machine Learning Engineer",
                 total_experience_years=5.0,
                 skills=["Python", "FastAPI", "PyTorch", "Docker", "MLflow"],
-                similarity_score=0.74,
-                profile_summary="summary",
-            ),
-            SemanticSearchResult(
-                candidate_id="cand-007",
-                full_name="Meera Iyer",
-                role_title="MLOps Engineer",
-                total_experience_years=7.0,
-                skills=["Python", "Docker", "AWS", "MLflow"],
-                similarity_score=0.66,
+                similarity_score=0.91,
+                semantic_similarity_score=0.88,
+                keyword_match_score=0.84,
+                bm25_score=0.84,
+                dense_profile_score=0.86,
+                dense_skill_score=0.89,
+                rrf_score=0.91,
                 profile_summary="summary",
             ),
             SemanticSearchResult(
@@ -35,92 +36,76 @@ class FakeVectorStore:
                 role_title="Computer Vision Engineer",
                 total_experience_years=5.0,
                 skills=["Python", "PyTorch", "FastAPI", "Docker"],
-                similarity_score=0.65,
+                similarity_score=0.73,
+                semantic_similarity_score=0.72,
+                keyword_match_score=0.66,
+                bm25_score=0.66,
+                dense_profile_score=0.71,
+                dense_skill_score=0.69,
+                rrf_score=0.73,
                 profile_summary="summary",
             ),
         ]
 
 
-class FakeConversationService:
-    def simulate_conversation(self, candidate, parsed_jd, recruiter_name="Talent Scout Bot"):
-        if candidate.id == "cand-002":
-            return CandidateConversation(
-                conversation_id="conv-002",
-                candidate_id="cand-002",
-                full_name=candidate.full_name,
-                role_title=candidate.role_title,
-                provider="mock",
-                model="mock-local",
-                created_at="2026-04-25T00:00:00+00:00",
-                summary="Strong interest",
-                transcript=[],
-                signals=ConversationSignals(
-                    consent_given=True,
-                    interest_level="high",
-                    sentiment="positive",
-                    confidence="high",
-                    specificity="high",
-                    salary_expectation_usd=54000,
-                    salary_alignment="aligned",
-                    availability_days=21,
-                ),
-                storage_path=str(Path("data/conversations/conv-002.json")),
-            )
+class FakeCrossEncoderService:
+    async def score_pairs_async(self, pairs):
+        return [0.92, 0.61][: len(pairs)]
 
-        if candidate.id == "cand-015":
-            return CandidateConversation(
-                conversation_id="conv-015",
-                candidate_id="cand-015",
-                full_name=candidate.full_name,
-                role_title=candidate.role_title,
-                provider="mock",
-                model="mock-local",
-                created_at="2026-04-25T00:00:00+00:00",
-                summary="Strong interest",
-                transcript=[],
-                signals=ConversationSignals(
-                    consent_given=True,
-                    interest_level="high",
-                    sentiment="positive",
-                    confidence="high",
-                    specificity="high",
-                    salary_expectation_usd=55000,
-                    salary_alignment="aligned",
-                    availability_days=21,
-                ),
-                storage_path=str(Path("data/conversations/conv-015.json")),
-            )
 
-        return CandidateConversation(
-            conversation_id="conv-007",
-            candidate_id="cand-007",
+class FakeEngagementService:
+    async def score_candidate_async(self, candidate, parsed_jd):
+        interest_lookup = {
+            "cand-002": 78.0,
+            "cand-015": 70.0,
+        }
+        flight_risk_lookup = {
+            "cand-002": 66.0,
+            "cand-015": 61.0,
+        }
+        return CandidateInterestResult(
+            candidate_id=candidate.id,
             full_name=candidate.full_name,
             role_title=candidate.role_title,
-            provider="mock",
-            model="mock-local",
-            created_at="2026-04-25T00:00:00+00:00",
-            summary="Moderate interest",
-            transcript=[],
-            signals=ConversationSignals(
-                consent_given=True,
-                interest_level="medium",
-                sentiment="neutral",
-                confidence="medium",
-                specificity="medium",
-                salary_expectation_usd=76000,
-                salary_alignment="above_range",
-                availability_days=60,
+            interest_score=interest_lookup[candidate.id],
+            flight_risk_score=flight_risk_lookup[candidate.id],
+            breakdown=InterestScoreBreakdown(
+                tenure_score=0.8,
+                salary_alignment_score=0.85,
+                availability_score=0.85,
+                stagnation_score=0.35,
+                promotion_likelihood_score=0.25,
+                role_relevance_score=0.9,
+                engagement_probability_score=0.8,
             ),
-            storage_path=str(Path("data/conversations/conv-007.json")),
+            salary_alignment="aligned",
+            availability_days=21,
+            explanation="Interest explanation",
+            provider="deterministic",
         )
 
 
-def test_final_ranking_combines_match_and_interest_scores() -> None:
+class FakeCommunicationService:
+    async def generate_summary(self, candidate, parsed_jd, match_result, interest_result):
+        return (
+            f"{candidate.full_name} looks strong on core backend ML fit with manageable risk.",
+            "deterministic",
+            None,
+        )
+
+    async def generate_outreach(self, candidate, parsed_jd, match_result, interest_result):
+        return RecruiterOutreach(
+            message=f"Hi, I would love to speak about our {parsed_jd.role_title} opening.",
+            provider="deterministic",
+            model="rule-based",
+        )
+
+
+def test_final_ranking_combines_match_interest_and_cross_encoder() -> None:
     parsed_jd = parse_job_description(
         """
         We are hiring a Senior Machine Learning Engineer for our talent intelligence platform.
-        You should have 4+ years of experience building production APIs and ML services.
-        Required skills: Python, FastAPI, PyTorch, Docker, AWS, MLflow, and vector search.
+        Must have Python, FastAPI, PyTorch, Docker, AWS, MLflow, and vector search.
         Budget: $50,000 - $65,000 annually.
         This is a remote role.
         """
@@ -128,19 +113,20 @@ def test_final_ranking_combines_match_and_interest_scores() -> None:
 
     rankings = FinalRankingService(
         vector_store=FakeVectorStore(),
-        conversation_service=FakeConversationService(),
-    ).rank_candidates(parsed_jd, top_k_search=3, top_k_final=2)
+        engagement_service=FakeEngagementService(),
+        communication_service=FakeCommunicationService(),
+        cross_encoder_service=FakeCrossEncoderService(),
+    ).rank_candidates(parsed_jd, top_k_search=2, top_k_final=2, include_outreach=True)
 
     assert len(rankings) == 2
     assert rankings[0].candidate_id == "cand-002"
-    assert rankings[0].final_score == 89.5
-    assert rankings[1].candidate_id == "cand-015"
-    assert rankings[1].final_score < rankings[0].final_score
-    assert rankings[0].rank == 1
-    assert "Final Score 89.5%" in rankings[0].final_explanation
+    assert rankings[0].final_score > rankings[1].final_score
+    assert rankings[0].cross_encoder_score >= rankings[1].cross_encoder_score
+    assert rankings[0].flight_risk_score == 66.0
+    assert rankings[0].recruiter_outreach is not None
 
 
-def test_final_ranking_results_have_nested_scores() -> None:
+def test_final_ranking_results_include_flat_and_nested_outputs() -> None:
     parsed_jd = parse_job_description(
         """
         Need a Machine Learning Engineer with Python, FastAPI, PyTorch, Docker, AWS, MLflow,
@@ -150,13 +136,16 @@ def test_final_ranking_results_have_nested_scores() -> None:
 
     rankings = FinalRankingService(
         vector_store=FakeVectorStore(),
-        conversation_service=FakeConversationService(),
-    ).rank_candidates(parsed_jd, top_k_search=3, top_k_final=1)
+        engagement_service=FakeEngagementService(),
+        communication_service=FakeCommunicationService(),
+        cross_encoder_service=FakeCrossEncoderService(),
+    ).rank_candidates(parsed_jd, top_k_search=2, top_k_final=1)
 
     result = rankings[0]
-    assert isinstance(result, FinalCandidateRanking)
     assert result.match_result.match_score > 0
     assert result.interest_result.interest_score > 0
+    assert result.summary
+    assert result.recommendation
 
 
 def test_final_ranking_run_returns_pipeline_counts() -> None:
@@ -169,9 +158,12 @@ def test_final_ranking_run_returns_pipeline_counts() -> None:
 
     run = FinalRankingService(
         vector_store=FakeVectorStore(),
-        conversation_service=FakeConversationService(),
-    ).run_ranking(parsed_jd, top_k_search=3, top_k_final=2)
+        engagement_service=FakeEngagementService(),
+        communication_service=FakeCommunicationService(),
+        cross_encoder_service=FakeCrossEncoderService(),
+    ).run_ranking(parsed_jd, top_k_search=2, top_k_final=2, page=1, page_size=2)
 
-    assert run.total_candidates_retrieved == 3
-    assert run.total_candidates_ranked == 3
+    assert run.total_candidates_retrieved == 2
+    assert run.total_candidates_ranked == 2
     assert len(run.rankings) == 2
+    assert run.total_pages == 1

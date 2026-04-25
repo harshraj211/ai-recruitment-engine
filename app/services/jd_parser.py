@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import re
 from functools import lru_cache
 
@@ -26,9 +28,14 @@ SENIORITY_DEFAULT_EXPERIENCE = {
 CUSTOM_SKILL_ALIASES = {
     "A/B Testing": ["a/b testing", "ab testing"],
     "CI/CD": ["ci/cd", "ci cd", "continuous integration", "continuous delivery"],
+    "Docker Swarm": ["docker swarm"],
     "FastAPI": ["fastapi"],
+    "Hugging Face": ["hugging face"],
+    "Information Extraction": ["information extraction"],
+    "Kubernetes": ["kubernetes", "k8s"],
     "LLM Evaluation": ["llm evaluation"],
     "Machine Learning": ["machine learning", "ml"],
+    "MLOps": ["mlops", "ml ops"],
     "Next.js": ["next.js", "nextjs"],
     "NLP": ["nlp", "natural language processing"],
     "PyTorch": ["pytorch"],
@@ -40,10 +47,10 @@ CUSTOM_SKILL_ALIASES = {
         "sentence transformers",
         "sentencetransformers",
     ],
+    "spaCy": ["spacy"],
     "TypeScript": ["typescript", "ts"],
     "Vector Databases": ["vector database", "vector databases"],
     "Vector Search": ["vector search", "semantic search"],
-    "spaCy": ["spacy", "spaCy"],
 }
 
 CUSTOM_ROLE_ALIASES = {
@@ -75,9 +82,17 @@ CUSTOM_ROLE_ALIASES = {
     "qa automation engineer": "QA Automation Engineer",
     "site reliability engineer": "Site Reliability Engineer",
     "sdet": "QA Automation Engineer",
-    "solution architect": "Solutions Architect",
     "solutions architect": "Solutions Architect",
-    "test engineer": "QA Automation Engineer",
+}
+
+CUSTOM_DOMAIN_TERMS = {
+    "Fintech": ["fintech", "payments", "banking"],
+    "Healthtech": ["healthtech", "healthcare", "clinical"],
+    "HR Tech": ["hr tech", "recruiting", "talent intelligence", "hiring"],
+    "Enterprise SaaS": ["enterprise saas", "b2b saas", "saas"],
+    "Marketplace": ["marketplace", "e-commerce", "commerce"],
+    "Recommendation Systems": ["recommendation", "ranking", "relevance"],
+    "Search": ["search", "information retrieval"],
 }
 
 WORK_MODE_ALIASES = (
@@ -87,65 +102,48 @@ WORK_MODE_ALIASES = (
     ("onsite", "onsite"),
 )
 
-CORE_SKILL_MARKERS = (
-    "must have",
-    "required",
-    "strong in",
-)
-
 EXPERIENCE_RANGE_PATTERN = re.compile(
-    r"(\d+(?:\.\d+)?)\s*(?:-|to|–|—)\s*(\d+(?:\.\d+)?)\s*(?:\+|plus)?\s*(?:years|yrs)",
+    r"(\d+(?:\.\d+)?)\s*(?:-|to)\s*(\d+(?:\.\d+)?)\s*(?:\+|plus)?\s*(?:years|yrs)",
     flags=re.IGNORECASE,
 )
 EXPERIENCE_SINGLE_PATTERN = re.compile(
     r"(\d+(?:\.\d+)?)\s*(?:\+|plus)?\s*(?:years|yrs)",
     flags=re.IGNORECASE,
 )
-SALARY_CONTEXT_PATTERN = re.compile(
-    r"(?:salary|budget|compensation|ctc|pay)[^.\n]{0,60}?"
-    r"(?:\$|usd)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\s*(?:-|to|–|—)\s*"
+SALARY_PATTERN = re.compile(
+    r"(?:salary|budget|compensation|ctc|pay)?[^.\n]{0,40}?"
+    r"(?:\$|usd)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\s*(?:-|to)\s*"
     r"(?:\$|usd)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|m)?",
     flags=re.IGNORECASE,
 )
-SALARY_CURRENCY_PATTERN = re.compile(
-    r"(?:\$|usd)\s*(\d[\d,]*(?:\.\d+)?)\s*(k|m)?\s*(?:-|to|–|—)\s*"
-    r"(?:\$|usd)?\s*(\d[\d,]*(?:\.\d+)?)\s*(k|m)?",
-    flags=re.IGNORECASE,
-)
+
+MANDATORY_MARKERS = ("must have", "required", "strong in", "need", "expert in")
+NICE_TO_HAVE_MARKERS = ("nice to have", "good to have", "bonus", "preferred", "plus")
+DOMAIN_MARKERS = ("domain", "industry", "product", "platform", "experience in")
 
 
 def normalize_text(text: str) -> str:
     return re.sub(r"\s+", " ", text).strip()
 
 
-def compile_phrase_pattern(phrase: str) -> re.Pattern[str]:
-    body = r"\s+".join(re.escape(part) for part in phrase.lower().split())
-
-    if phrase and phrase[0].isalnum():
-        body = rf"(?<![a-z0-9]){body}"
-    if phrase and phrase[-1].isalnum():
-        body = rf"{body}(?![a-z0-9])"
-
-    return re.compile(body, flags=re.IGNORECASE)
-
-
 def parse_money_amount(raw_value: str, suffix: str | None) -> int:
     amount = float(raw_value.replace(",", ""))
-    if suffix:
-        if suffix.lower() == "k":
-            amount *= 1_000
-        elif suffix.lower() == "m":
-            amount *= 1_000_000
+    if suffix == "k":
+        amount *= 1_000
+    elif suffix == "m":
+        amount *= 1_000_000
     return int(amount)
 
 
 @lru_cache
 def get_skill_aliases() -> dict[str, list[str]]:
     aliases: dict[str, set[str]] = {}
-
     for candidate in load_candidates():
         for skill in candidate.skills:
             aliases.setdefault(skill, set()).add(skill)
+        for history in candidate.role_history:
+            for skill in history.skills:
+                aliases.setdefault(skill, set()).add(skill)
 
     for canonical, values in CUSTOM_SKILL_ALIASES.items():
         aliases.setdefault(canonical, set()).add(canonical)
@@ -157,103 +155,114 @@ def get_skill_aliases() -> dict[str, list[str]]:
 @lru_cache
 def get_role_aliases() -> dict[str, str]:
     aliases: dict[str, str] = {}
-
     for candidate in load_candidates():
         aliases[candidate.role_title.lower()] = candidate.role_title
         for role in candidate.preferred_roles:
             aliases.setdefault(role.lower(), role)
+        for history in candidate.role_history:
+            aliases.setdefault(history.title.lower(), history.title)
 
     aliases.update(CUSTOM_ROLE_ALIASES)
     return aliases
 
 
-def is_span_contained(span: tuple[int, int], containers: list[tuple[int, int]]) -> bool:
-    return any(span[0] >= start and span[1] <= end for start, end in containers)
+@lru_cache
+def get_domain_aliases() -> dict[str, list[str]]:
+    aliases: dict[str, set[str]] = {}
+    for candidate in load_candidates():
+        for industry in candidate.industries:
+            aliases.setdefault(industry, set()).add(industry)
+
+    for canonical, values in CUSTOM_DOMAIN_TERMS.items():
+        aliases.setdefault(canonical, set()).add(canonical)
+        aliases[canonical].update(values)
+
+    return {key: sorted(values, key=len, reverse=True) for key, values in aliases.items()}
 
 
-def find_role_match(text: str) -> tuple[str, tuple[int, int]] | None:
-    matches: list[tuple[int, int, str, tuple[int, int]]] = []
+@lru_cache
+def get_spacy_components():
+    try:
+        import spacy
+        from spacy.matcher import PhraseMatcher
+    except ImportError as exc:
+        raise RuntimeError(
+            "spaCy is not installed. Use Python 3.11 and run `pip install -r requirements.txt`."
+        ) from exc
 
-    for alias, canonical in get_role_aliases().items():
-        match = compile_phrase_pattern(alias).search(text)
-        if match:
-            matches.append((match.start(), -len(alias), canonical, match.span()))
+    nlp = spacy.blank("en")
+    nlp.add_pipe("sentencizer")
+    matcher = PhraseMatcher(nlp.vocab, attr="LOWER")
 
-    if not matches:
-        return None
+    role_patterns = [nlp.make_doc(alias) for alias in get_role_aliases().keys()]
+    skill_patterns = [
+        nlp.make_doc(alias)
+        for aliases in get_skill_aliases().values()
+        for alias in aliases
+    ]
+    domain_patterns = [
+        nlp.make_doc(alias)
+        for aliases in get_domain_aliases().values()
+        for alias in aliases
+    ]
 
-    matches.sort()
-    return matches[0][2], matches[0][3]
-
-
-def extract_role_title(text: str) -> str | None:
-    role_match = find_role_match(text)
-    if not role_match:
-        return None
-    return role_match[0]
-
-
-def extract_skills(
-    text: str,
-    exclude_spans: list[tuple[int, int]] | None = None,
-) -> list[str]:
-    exclude_spans = exclude_spans or []
-    matches: list[tuple[int, int, str]] = []
-
-    for canonical, aliases in get_skill_aliases().items():
-        canonical_matches: list[tuple[int, int]] = []
-
-        for alias in aliases:
-            canonical_matches.extend(
-                match.span() for match in compile_phrase_pattern(alias).finditer(text)
-            )
-
-        for span in sorted(canonical_matches):
-            if not is_span_contained(span, exclude_spans):
-                matches.append((span[0], span[1], canonical))
-                break
-
-    matches.sort(key=lambda item: (item[0], -(item[1] - item[0]), item[2]))
-
-    selected: list[tuple[int, int, str]] = []
-    selected_spans: list[tuple[int, int]] = []
-
-    for start, end, canonical in matches:
-        if is_span_contained((start, end), selected_spans):
-            continue
-        selected.append((start, end, canonical))
-        selected_spans.append((start, end))
-
-    return [canonical for _, _, canonical in selected]
+    matcher.add("ROLE", role_patterns)
+    matcher.add("SKILL", skill_patterns)
+    matcher.add("DOMAIN", domain_patterns)
+    return nlp, matcher
 
 
-def extract_core_skills(text: str, skills: list[str]) -> list[str]:
-    """Classify explicitly required skills without making every mentioned tool critical."""
-    if not skills:
-        return []
+def deduplicate(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in items:
+        key = item.lower()
+        if item and key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
 
-    skill_lookup = {skill.lower(): skill for skill in skills}
-    core_skills: list[str] = []
-    core_skill_keys: set[str] = set()
-    marker_patterns = [compile_phrase_pattern(marker) for marker in CORE_SKILL_MARKERS]
-    segments = re.split(r"[.;]\s*", text)
 
-    for segment in segments:
-        if not any(pattern.search(segment) for pattern in marker_patterns):
-            continue
+def canonicalize(label: str, value: str) -> str:
+    lowered = value.lower()
+    if label == "ROLE":
+        return get_role_aliases().get(lowered, value.title())
+    if label == "SKILL":
+        for canonical, aliases in get_skill_aliases().items():
+            if lowered == canonical.lower() or lowered in {alias.lower() for alias in aliases}:
+                return canonical
+    if label == "DOMAIN":
+        for canonical, aliases in get_domain_aliases().items():
+            if lowered == canonical.lower() or lowered in {alias.lower() for alias in aliases}:
+                return canonical
+    return value
 
-        for segment_skill in extract_skills(segment):
-            canonical = skill_lookup.get(segment_skill.lower())
-            if canonical and canonical.lower() not in core_skill_keys:
-                core_skill_keys.add(canonical.lower())
-                core_skills.append(canonical)
 
-    return core_skills
+def classify_sentence(sentence_text: str) -> str:
+    lowered = sentence_text.lower()
+    if any(marker in lowered for marker in NICE_TO_HAVE_MARKERS):
+        return "nice"
+    if any(marker in lowered for marker in MANDATORY_MARKERS):
+        return "mandatory"
+    if any(marker in lowered for marker in DOMAIN_MARKERS):
+        return "domain"
+    return "general"
+
+
+def extract_sentence_items(sentence_doc, matcher, label: str) -> list[str]:
+    return deduplicate(
+        [
+            canonicalize(sentence_doc.vocab.strings[match_id], sentence_doc[start:end].text)
+            for match_id, start, end in matcher(sentence_doc)
+            if sentence_doc.vocab.strings[match_id] == label
+        ]
+    )
 
 
 def extract_seniority(text: str) -> str | None:
+    lowered = text.lower()
     for alias, canonical in SENIORITY_ALIASES:
-        if compile_phrase_pattern(alias).search(text):
+        if alias in lowered:
             return canonical
     return None
 
@@ -269,48 +278,83 @@ def extract_min_experience_years(text: str, seniority: str | None) -> float | No
 
     if seniority:
         return float(SENIORITY_DEFAULT_EXPERIENCE[seniority])
-
     return None
 
 
 def extract_salary_range_usd(text: str) -> list[int]:
-    for pattern in (SALARY_CONTEXT_PATTERN, SALARY_CURRENCY_PATTERN):
-        match = pattern.search(text)
-        if match:
-            low = parse_money_amount(match.group(1), match.group(2))
-            high = parse_money_amount(match.group(3), match.group(4))
-            return sorted([low, high])
-
-    return []
+    match = SALARY_PATTERN.search(text)
+    if not match:
+        return []
+    low = parse_money_amount(match.group(1), match.group(2))
+    high = parse_money_amount(match.group(3), match.group(4))
+    return sorted([low, high])
 
 
 def extract_work_mode(text: str) -> str | None:
+    lowered = text.lower()
     for alias, canonical in WORK_MODE_ALIASES:
-        if compile_phrase_pattern(alias).search(text):
+        if alias in lowered:
             return canonical
     return None
 
 
 def parse_job_description(raw_text: str) -> ParsedJobDescription:
     normalized_text = normalize_text(raw_text)
-    searchable_text = normalized_text.lower()
-    seniority = extract_seniority(searchable_text)
-    role_match = find_role_match(searchable_text)
-    role_title = role_match[0] if role_match else None
-    exclude_spans = [role_match[1]] if role_match else []
-    skills = extract_skills(searchable_text, exclude_spans=exclude_spans)
-    core_skills = extract_core_skills(searchable_text, skills)
-    core_skill_keys = {skill.lower() for skill in core_skills}
-    secondary_skills = [skill for skill in skills if skill.lower() not in core_skill_keys]
+    seniority = extract_seniority(normalized_text)
+    nlp, matcher = get_spacy_components()
+    doc = nlp(normalized_text)
+
+    role_title = None
+    matched_skills: list[str] = []
+    mandatory_skills: list[str] = []
+    nice_to_have_skills: list[str] = []
+    domain_knowledge: list[str] = []
+
+    for sentence in doc.sents:
+        sentence_doc = nlp.make_doc(sentence.text)
+        sentence_roles = extract_sentence_items(sentence_doc, matcher, "ROLE")
+        sentence_skills = extract_sentence_items(sentence_doc, matcher, "SKILL")
+        sentence_domains = extract_sentence_items(sentence_doc, matcher, "DOMAIN")
+        sentence_type = classify_sentence(sentence.text)
+
+        if role_title is None and sentence_roles:
+            role_title = sentence_roles[0]
+
+        matched_skills.extend(sentence_skills)
+
+        if sentence_type == "mandatory":
+            mandatory_skills.extend(sentence_skills)
+        elif sentence_type == "nice":
+            nice_to_have_skills.extend(sentence_skills)
+        elif sentence_type == "domain":
+            domain_knowledge.extend(sentence_domains or sentence_skills)
+        else:
+            domain_knowledge.extend(sentence_domains)
+
+    matched_skills = deduplicate(matched_skills)
+    mandatory_skills = deduplicate(mandatory_skills)
+    mandatory_keys = {skill.lower() for skill in mandatory_skills}
+    nice_to_have_skills = deduplicate(
+        [skill for skill in nice_to_have_skills if skill.lower() not in mandatory_keys]
+    )
+    if not mandatory_skills and matched_skills:
+        mandatory_skills = matched_skills[: min(5, len(matched_skills))]
+        mandatory_keys = {skill.lower() for skill in mandatory_skills}
+        nice_to_have_skills = [
+            skill for skill in matched_skills if skill.lower() not in mandatory_keys
+        ]
 
     return ParsedJobDescription(
         raw_text=normalized_text,
         role_title=role_title,
         seniority=seniority,
-        min_experience_years=extract_min_experience_years(searchable_text, seniority),
-        skills=skills,
-        core_skills=core_skills,
-        secondary_skills=secondary_skills,
-        salary_range_usd=extract_salary_range_usd(searchable_text),
-        work_mode=extract_work_mode(searchable_text),
+        min_experience_years=extract_min_experience_years(normalized_text, seniority),
+        skills=matched_skills,
+        mandatory_skills=mandatory_skills,
+        nice_to_have_skills=nice_to_have_skills,
+        domain_knowledge=deduplicate(domain_knowledge),
+        core_skills=mandatory_skills,
+        secondary_skills=nice_to_have_skills,
+        salary_range_usd=extract_salary_range_usd(normalized_text),
+        work_mode=extract_work_mode(normalized_text),
     )

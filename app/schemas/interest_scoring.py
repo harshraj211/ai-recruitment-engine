@@ -4,8 +4,11 @@ from pydantic import BaseModel, Field
 
 
 class InterestScoreBreakdown(BaseModel):
+    tenure_score: float = Field(ge=0, le=1)
     salary_alignment_score: float = Field(ge=0, le=1)
     availability_score: float = Field(ge=0, le=1)
+    stagnation_score: float = Field(ge=0, le=1)
+    promotion_likelihood_score: float = Field(ge=0, le=1)
     role_relevance_score: float = Field(ge=0, le=1)
     engagement_probability_score: float = Field(ge=0, le=1)
 
@@ -15,6 +18,7 @@ class CandidateInterestResult(BaseModel):
     full_name: str
     role_title: str
     interest_score: float = Field(ge=0, le=100)
+    flight_risk_score: float = Field(ge=0, le=100)
     breakdown: InterestScoreBreakdown
     salary_alignment: Literal["aligned", "below_range", "above_range", "unknown"]
     availability_days: int | None = None

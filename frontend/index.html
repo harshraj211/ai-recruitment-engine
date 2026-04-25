@@ -1,484 +1,527 @@
 <!DOCTYPE html>
-<html lang="en" class="scroll-smooth">
+<html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Talent Scout — Intelligent Candidate Matching</title>
-    <meta name="description" content="AI-powered talent scouting agent that matches job descriptions to candidates using semantic search, conversation simulation, and intelligent scoring." />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Talent Scout</title>
+    <meta
+        name="description"
+        content="Hybrid retrieval and ranking for AI-powered talent intelligence."
+    >
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap"
+        rel="stylesheet"
+    >
     <script>
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+                    fontFamily: {
+                        sans: ['Manrope', 'system-ui', 'sans-serif'],
+                    },
                     colors: {
-                        surface: { 50: '#f8fafc', 100: '#f1f5f9', 800: '#1e293b', 900: '#0f172a', 950: '#020617' },
-                        accent: { 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5' },
-                        emerald: { 400: '#34d399', 500: '#10b981' },
-                        amber: { 400: '#fbbf24', 500: '#f59e0b' },
-                        rose: { 400: '#fb7185', 500: '#f43f5e' },
+                        ink: '#0f172a',
+                        mist: '#e2e8f0',
+                        slatepanel: '#111827',
+                        slateedge: '#334155',
+                        greenaccent: '#10b981',
+                        amberaccent: '#f59e0b',
+                        roseaccent: '#f43f5e',
                     },
                 },
             },
         };
     </script>
     <style>
-        body { font-family: 'Inter', system-ui, sans-serif; }
-
-        /* Custom scrollbar */
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #0f172a; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
-
-        /* Gradient text */
-        .gradient-text {
-            background: linear-gradient(135deg, #818cf8 0%, #6366f1 40%, #a78bfa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+        body {
+            font-family: 'Manrope', system-ui, sans-serif;
+            background:
+                radial-gradient(circle at top, rgba(16, 185, 129, 0.10), transparent 28%),
+                linear-gradient(180deg, #0b1020 0%, #0f172a 40%, #111827 100%);
         }
 
-        /* Glass card */
-        .glass-card {
-            background: rgba(30, 41, 59, 0.6);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(99, 102, 241, 0.12);
+        .panel {
+            background: rgba(15, 23, 42, 0.78);
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            backdrop-filter: blur(12px);
         }
 
-        /* Glow effect for top candidate */
-        .rank-1-glow {
-            box-shadow: 0 0 40px -8px rgba(99, 102, 241, 0.35);
-            border-color: rgba(99, 102, 241, 0.3) !important;
+        .progress-fill {
+            transition: width 0.8s ease;
         }
 
-        /* Score ring animation */
-        .score-ring { transition: stroke-dashoffset 1s ease-out; }
-
-        /* Slide-up entrance */
-        @keyframes slideUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        .animate-slide-up { animation: slideUp 0.5s ease-out forwards; opacity: 0; }
-
-        /* Pulse dot */
-        @keyframes pulse-dot {
-            0%, 100% { opacity: 0.4; transform: scale(1); }
-            50% { opacity: 1; transform: scale(1.4); }
-        }
-        .pulse-dot { animation: pulse-dot 1.4s ease-in-out infinite; }
-
-        /* Shimmer loading */
-        @keyframes shimmer {
-            0% { background-position: -400px 0; }
-            100% { background-position: 400px 0; }
-        }
-        .shimmer {
-            background: linear-gradient(90deg, rgba(30,41,59,0.4) 25%, rgba(51,65,85,0.5) 50%, rgba(30,41,59,0.4) 75%);
-            background-size: 800px 100%;
-            animation: shimmer 1.5s infinite;
+        .candidate-card {
+            animation: card-in 0.4s ease both;
         }
 
-        /* Textarea focus glow */
-        textarea:focus {
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        @keyframes card-in {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
         }
 
-        /* Progress bar fill */
-        .progress-fill { transition: width 1s ease-out; }
+        .matched-pill {
+            background: rgba(16, 185, 129, 0.14);
+            border: 1px solid rgba(16, 185, 129, 0.22);
+            color: #6ee7b7;
+        }
 
-        /* Skill badge */
-        .skill-matched { background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.25); }
-        .skill-missing { background: rgba(244, 63, 94, 0.12); color: #fb7185; border: 1px solid rgba(244, 63, 94, 0.2); }
+        .missing-pill {
+            background: rgba(244, 63, 94, 0.12);
+            border: 1px solid rgba(244, 63, 94, 0.22);
+            color: #fda4af;
+        }
     </style>
 </head>
-<body class="bg-surface-950 text-slate-200 min-h-screen">
-
-    <!-- BACKGROUND GRADIENT ORBS -->
-    <div class="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-        <div class="absolute -top-40 -left-40 w-[600px] h-[600px] bg-accent-600/[0.07] rounded-full blur-[120px]"></div>
-        <div class="absolute top-1/2 -right-40 w-[500px] h-[500px] bg-indigo-500/[0.05] rounded-full blur-[100px]"></div>
-        <div class="absolute -bottom-40 left-1/3 w-[400px] h-[400px] bg-violet-500/[0.04] rounded-full blur-[80px]"></div>
-    </div>
-
-    <div class="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-
-        <!-- HEADER -->
-        <header class="text-center mb-12">
-            <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-accent-500/10 border border-accent-500/20 text-accent-400 text-xs font-medium tracking-wide uppercase mb-6">
-                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
-                AI-Powered Engine
+<body class="text-slate-100 min-h-screen">
+    <main class="max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-14">
+        <section class="mb-10">
+            <div class="max-w-3xl">
+                <p class="text-xs uppercase tracking-[0.22em] text-emerald-300/80 mb-3">
+                    Production Talent Intelligence
+                </p>
+                <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight mb-4">
+                    Talent Scout
+                </h1>
+                <p class="text-slate-300/80 text-base sm:text-lg leading-relaxed">
+                    Hybrid search, deep re-ranking, predictive engagement, and recruiter-ready
+                    explanations in one streaming shortlist workflow.
+                </p>
             </div>
-            <h1 class="text-4xl sm:text-5xl font-extrabold tracking-tight mb-3">
-                <span class="gradient-text">Talent Scout</span>
-            </h1>
-            <p class="text-slate-400 text-base sm:text-lg max-w-xl mx-auto leading-relaxed">
-                Paste a job description and let AI find, score, and rank your best candidates with explainable reasoning.
-            </p>
-        </header>
+        </section>
 
-        <!-- INPUT SECTION -->
-        <section id="input-section" class="glass-card rounded-2xl p-6 sm:p-8 mb-10">
-            <label for="jd-input" class="block text-sm font-semibold text-slate-300 mb-3">
+        <section class="panel rounded-2xl p-6 sm:p-8 mb-8">
+            <label for="jd-input" class="block text-sm font-semibold text-slate-200 mb-3">
                 Job Description
             </label>
             <textarea
                 id="jd-input"
-                rows="7"
-                class="w-full bg-surface-950/70 border border-slate-700/60 rounded-xl px-5 py-4 text-sm text-slate-200 placeholder-slate-500 resize-y focus:outline-none focus:border-accent-500/50 transition-all duration-200"
-                placeholder="We are hiring a Senior Machine Learning Engineer for our AI-powered talent intelligence platform. The ideal candidate should have 4+ years of experience building production-grade ML services and APIs. Required skills include Python, FastAPI, PyTorch, Docker, AWS, MLflow, Machine Learning, and Vector Search. This is a remote position with a salary budget of $50,000 to $65,000 USD annually."
+                rows="8"
+                class="w-full rounded-2xl bg-slate-950/70 border border-slate-700 px-4 py-4 text-sm text-slate-100 placeholder:text-slate-500 resize-y focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                placeholder="We are hiring a Senior Machine Learning Engineer for a talent intelligence platform. Must have Python, FastAPI, PyTorch, Docker, AWS, and vector search. Nice to have MLflow and RAG. Experience in HR tech or search is valuable. Salary budget is $50,000 to $65,000 and this role is remote."
             ></textarea>
 
-            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-5">
-                <div class="flex items-center gap-4">
-                    <label for="topk-select" class="text-xs text-slate-400 font-medium">Return top</label>
-                    <select id="topk-select" class="bg-surface-950/70 border border-slate-700/60 rounded-lg px-3 py-1.5 text-sm text-slate-300 focus:outline-none focus:border-accent-500/50">
-                        <option value="3" selected>3 candidates</option>
-                        <option value="5">5 candidates</option>
-                        <option value="10">10 candidates</option>
+            <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between mt-5">
+                <div class="flex items-center gap-3">
+                    <label for="topk-select" class="text-xs uppercase tracking-wide text-slate-400">
+                        Return
+                    </label>
+                    <select
+                        id="topk-select"
+                        class="rounded-xl bg-slate-950/70 border border-slate-700 px-3 py-2 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    >
+                        <option value="3">Top 3</option>
+                        <option value="5" selected>Top 5</option>
+                        <option value="10">Top 10</option>
                     </select>
                 </div>
+
                 <button
                     id="submit-btn"
-                    onclick="handleSubmit()"
-                    class="inline-flex items-center gap-2.5 px-7 py-3 bg-gradient-to-r from-accent-600 to-accent-500 hover:from-accent-500 hover:to-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-accent-600/20 hover:shadow-accent-500/30 transition-all duration-200 active:scale-[0.97]"
+                    type="button"
+                    class="inline-flex items-center justify-center rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-6 py-3 transition-colors"
                 >
-                    <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
-                    Find Candidates
+                    Analyze Candidates
                 </button>
             </div>
         </section>
 
-        <!-- LOADING STATE -->
-        <section id="loading-section" class="hidden mb-10">
-            <div class="glass-card rounded-2xl p-8 text-center">
-                <div class="flex justify-center gap-2 mb-4">
-                    <span class="w-2.5 h-2.5 rounded-full bg-accent-400 pulse-dot" style="animation-delay: 0s"></span>
-                    <span class="w-2.5 h-2.5 rounded-full bg-accent-400 pulse-dot" style="animation-delay: 0.2s"></span>
-                    <span class="w-2.5 h-2.5 rounded-full bg-accent-400 pulse-dot" style="animation-delay: 0.4s"></span>
-                </div>
-                <p class="text-sm text-slate-400 font-medium">Analyzing job description & scoring candidates…</p>
-                <p class="text-xs text-slate-500 mt-1">Running semantic search, conversation simulation & ranking</p>
-            </div>
-            <!-- Skeleton cards -->
-            <div class="mt-6 space-y-4">
-                <div class="shimmer h-36 rounded-2xl"></div>
-                <div class="shimmer h-36 rounded-2xl"></div>
-                <div class="shimmer h-36 rounded-2xl"></div>
-            </div>
-        </section>
-
-        <!-- ERROR STATE -->
-        <section id="error-section" class="hidden mb-10">
-            <div class="glass-card rounded-2xl p-6 border-rose-500/30">
-                <div class="flex items-start gap-3">
-                    <svg class="w-5 h-5 text-rose-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/></svg>
+        <section id="loading-section" class="hidden mb-8">
+            <div class="panel rounded-2xl p-6">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <p class="text-sm font-semibold text-rose-300">Something went wrong</p>
-                        <p id="error-message" class="text-xs text-slate-400 mt-1"></p>
+                        <p id="progress-status" class="text-sm font-semibold text-slate-100">
+                            Analyzing job description...
+                        </p>
+                        <p id="progress-detail" class="text-xs text-slate-400 mt-1">
+                            Running hybrid retrieval, deep ranking, and predictive engagement
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse [animation-delay:150ms]"></span>
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse [animation-delay:300ms]"></span>
                     </div>
                 </div>
             </div>
         </section>
 
-        <!-- PARSED JD SUMMARY -->
-        <section id="jd-summary-section" class="hidden mb-8 animate-slide-up">
-            <div class="glass-card rounded-2xl p-6">
-                <h2 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
-                    <svg class="w-4 h-4 text-accent-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V19.5a2.25 2.25 0 002.25 2.25h.75"/></svg>
-                    Parsed Job Description
-                </h2>
-                <div id="jd-summary-content" class="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs"></div>
+        <section id="error-section" class="hidden mb-8">
+            <div class="panel rounded-2xl p-5 border border-roseaccent/40">
+                <p class="text-sm font-semibold text-rose-300">Request failed</p>
+                <p id="error-message" class="text-sm text-slate-300 mt-1"></p>
             </div>
         </section>
 
-        <!-- RESULTS SECTION -->
+        <section id="jd-summary-section" class="hidden mb-8">
+            <div class="panel rounded-2xl p-6">
+                <div class="flex items-center justify-between gap-3 mb-4">
+                    <h2 class="text-lg font-bold">Parsed Role Requirements</h2>
+                    <span class="text-xs uppercase tracking-[0.18em] text-slate-400">
+                        Explainable parse
+                    </span>
+                </div>
+                <div id="jd-summary-content" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3"></div>
+            </div>
+        </section>
+
         <section id="results-section" class="hidden">
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-lg font-bold text-slate-200 flex items-center gap-2">
-                    <svg class="w-5 h-5 text-emerald-400" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
-                    Ranked Candidates
-                </h2>
-                <p id="results-meta" class="text-xs text-slate-500"></p>
+            <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-5">
+                <div>
+                    <h2 class="text-2xl font-bold">Ranked Candidates</h2>
+                    <p class="text-sm text-slate-400">Progressive shortlist with hybrid retrieval evidence.</p>
+                </div>
+                <p id="results-meta" class="text-xs uppercase tracking-[0.14em] text-slate-500"></p>
             </div>
             <div id="results-container" class="space-y-5"></div>
         </section>
-
-        <!-- FOOTER -->
-        <footer class="mt-16 text-center text-xs text-slate-600">
-            AI-Powered Talent Scouting &amp; Engagement Agent — Hackathon Demo
-        </footer>
-    </div>
+    </main>
 
     <script>
-    const API_URL = 'http://127.0.0.1:8000/api/v1/match';
+        const STREAM_URL = '/api/v1/match/stream';
 
-    /* ---------- DOM refs ---------- */
-    const jdInput        = document.getElementById('jd-input');
-    const topkSelect     = document.getElementById('topk-select');
-    const submitBtn      = document.getElementById('submit-btn');
-    const loadingSection = document.getElementById('loading-section');
-    const errorSection   = document.getElementById('error-section');
-    const errorMessage   = document.getElementById('error-message');
-    const jdSummary      = document.getElementById('jd-summary-section');
-    const jdContent      = document.getElementById('jd-summary-content');
-    const resultsSection = document.getElementById('results-section');
-    const resultsMeta    = document.getElementById('results-meta');
-    const resultsContainer = document.getElementById('results-container');
+        const jdInput = document.getElementById('jd-input');
+        const topkSelect = document.getElementById('topk-select');
+        const submitBtn = document.getElementById('submit-btn');
+        const loadingSection = document.getElementById('loading-section');
+        const errorSection = document.getElementById('error-section');
+        const errorMessage = document.getElementById('error-message');
+        const jdSummary = document.getElementById('jd-summary-section');
+        const jdContent = document.getElementById('jd-summary-content');
+        const resultsSection = document.getElementById('results-section');
+        const resultsMeta = document.getElementById('results-meta');
+        const resultsContainer = document.getElementById('results-container');
+        const progressStatus = document.getElementById('progress-status');
+        const progressDetail = document.getElementById('progress-detail');
 
-    /* ---------- State helpers ---------- */
-    function showLoading() {
-        loadingSection.classList.remove('hidden');
-        errorSection.classList.add('hidden');
-        jdSummary.classList.add('hidden');
-        resultsSection.classList.add('hidden');
-        submitBtn.disabled = true;
-        submitBtn.classList.add('opacity-60', 'pointer-events-none');
-    }
-
-    function hideLoading() {
-        loadingSection.classList.add('hidden');
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('opacity-60', 'pointer-events-none');
-    }
-
-    function showError(msg) {
-        hideLoading();
-        errorSection.classList.remove('hidden');
-        errorMessage.textContent = msg;
-    }
-
-    /* ---------- Score color ---------- */
-    function scoreColor(score) {
-        if (score >= 80) return { bar: 'bg-emerald-500', text: 'text-emerald-400', ring: '#34d399' };
-        if (score >= 60) return { bar: 'bg-amber-500',   text: 'text-amber-400',   ring: '#fbbf24' };
-        return                   { bar: 'bg-rose-500',    text: 'text-rose-400',    ring: '#fb7185' };
-    }
-
-    /* ---------- Score ring SVG ---------- */
-    function scoreRingSVG(score, color, size = 64) {
-        const r = (size / 2) - 4;
-        const circ = 2 * Math.PI * r;
-        const offset = circ * (1 - score / 100);
-        return `
-        <svg width="${size}" height="${size}" class="transform -rotate-90">
-            <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(51,65,85,0.5)" stroke-width="4"/>
-            <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="4"
-                stroke-dasharray="${circ}" stroke-dashoffset="${offset}" stroke-linecap="round" class="score-ring"/>
-        </svg>
-        <span class="absolute inset-0 flex items-center justify-center text-sm font-bold text-slate-200">
-            ${score.toFixed(1)}
-        </span>`;
-    }
-
-    /* ---------- Progress bar ---------- */
-    function progressBar(score, color) {
-        return `<div class="w-full bg-slate-700/50 rounded-full h-1.5 overflow-hidden">
-            <div class="progress-fill h-full rounded-full ${color}" style="width: 0%" data-target="${score}"></div>
-        </div>`;
-    }
-
-    /* ---------- Skill badges ---------- */
-    function skillBadges(matched, missing) {
-        let html = '';
-        matched.forEach(s => { html += `<span class="skill-matched text-[10px] px-2 py-0.5 rounded-full font-medium">${s}</span>`; });
-        missing.forEach(s => { html += `<span class="skill-missing text-[10px] px-2 py-0.5 rounded-full font-medium">${s}</span>`; });
-        return html;
-    }
-
-    /* ---------- Render parsed JD ---------- */
-    function renderParsedJD(pjd) {
-        const pills = [];
-        if (pjd.role_title)           pills.push({ label: 'Role', value: pjd.role_title, icon: '💼' });
-        if (pjd.seniority)            pills.push({ label: 'Seniority', value: pjd.seniority, icon: '📊' });
-        if (pjd.min_experience_years) pills.push({ label: 'Experience', value: `${pjd.min_experience_years}+ yrs`, icon: '⏱️' });
-        if (pjd.work_mode)            pills.push({ label: 'Mode', value: pjd.work_mode, icon: '🏠' });
-        if (pjd.salary_range_usd && pjd.salary_range_usd.length === 2)
-            pills.push({ label: 'Salary', value: `$${pjd.salary_range_usd[0].toLocaleString()} – $${pjd.salary_range_usd[1].toLocaleString()}`, icon: '💰' });
-        if (pjd.skills && pjd.skills.length)
-            pills.push({ label: 'Skills', value: pjd.skills.join(', '), icon: '🛠️' });
-
-        jdContent.innerHTML = pills.map(p => `
-            <div class="bg-surface-950/60 rounded-xl px-3.5 py-2.5 ${p.label === 'Skills' ? 'col-span-2 sm:col-span-3' : ''}">
-                <div class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-0.5">${p.icon} ${p.label}</div>
-                <div class="text-xs text-slate-300 font-medium capitalize">${p.value}</div>
-            </div>
-        `).join('');
-
-        jdSummary.classList.remove('hidden');
-    }
-
-    /* ---------- Render one candidate card ---------- */
-    function renderCandidateCard(r, index) {
-        const m  = r.match_result;
-        const ir = r.interest_result;
-        const fc = scoreColor(r.final_score);
-        const mc = scoreColor(m.match_score);
-        const ic = scoreColor(ir.interest_score);
-
-        const rankBadge = r.rank === 1
-            ? `<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-amber-400/10 border border-amber-500/30">
-                <span class="text-amber-400 text-xs font-bold">👑 #${r.rank}</span></div>`
-            : `<div class="flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-700/40 border border-slate-600/40">
-                <span class="text-slate-400 text-xs font-semibold">#${r.rank}</span></div>`;
-
-        const card = `
-        <div class="glass-card rounded-2xl overflow-hidden ${r.rank === 1 ? 'rank-1-glow' : ''} animate-slide-up" style="animation-delay: ${index * 0.12}s">
-            <!-- Top row -->
-            <div class="p-5 sm:p-6">
-                <div class="flex items-start justify-between gap-4 mb-5">
-                    <div class="flex items-center gap-3">
-                        ${rankBadge}
-                        <div>
-                            <h3 class="text-base font-bold text-slate-100">${r.full_name}</h3>
-                            <p class="text-xs text-slate-400 mt-0.5">${r.role_title} · ${m.total_experience_years} yrs exp</p>
-                        </div>
-                    </div>
-                    <div class="relative flex-shrink-0">
-                        ${scoreRingSVG(r.final_score, fc.ring)}
-                    </div>
-                </div>
-
-                <!-- Score bars -->
-                <div class="grid grid-cols-3 gap-4 mb-5">
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Match</span>
-                            <span class="text-xs font-bold ${mc.text}">${m.match_score}</span>
-                        </div>
-                        ${progressBar(m.match_score, mc.bar)}
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Interest</span>
-                            <span class="text-xs font-bold ${ic.text}">${ir.interest_score}</span>
-                        </div>
-                        ${progressBar(ir.interest_score, ic.bar)}
-                    </div>
-                    <div>
-                        <div class="flex items-center justify-between mb-1">
-                            <span class="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Final</span>
-                            <span class="text-xs font-bold ${fc.text}">${r.final_score}</span>
-                        </div>
-                        ${progressBar(r.final_score, fc.bar)}
-                    </div>
-                </div>
-
-                <!-- Skills -->
-                <div class="mb-4">
-                    <p class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-2">Skill Match</p>
-                    <div class="flex flex-wrap gap-1.5">
-                        ${skillBadges(m.matched_skills || [], m.missing_skills || [])}
-                    </div>
-                </div>
-
-                <!-- Explanations (collapsible) -->
-                <details class="group">
-                    <summary class="cursor-pointer text-xs text-accent-400 hover:text-accent-300 font-medium flex items-center gap-1.5 select-none transition-colors">
-                        <svg class="w-3.5 h-3.5 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>
-                        View Detailed Explanation
-                    </summary>
-                    <div class="mt-3 space-y-2.5 pl-5 border-l-2 border-slate-700/60">
-                        <div>
-                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-0.5">🎯 Skill Match</p>
-                            <p class="text-xs text-slate-300 leading-relaxed">${r.skill_match_reason || m.explanation}</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-0.5">📈 Experience</p>
-                            <p class="text-xs text-slate-300 leading-relaxed">${r.experience_match_reason || ''}</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-0.5">💬 Conversation Insight</p>
-                            <p class="text-xs text-slate-300 leading-relaxed">${r.conversation_insight || ''}</p>
-                        </div>
-                        <div>
-                            <p class="text-[10px] text-slate-500 uppercase tracking-wider font-medium mb-0.5">🤖 LLM Provider</p>
-                            <p class="text-xs text-slate-400">${ir.provider} ${ir.conversation_id ? `· ${ir.conversation_id}` : ''}</p>
-                        </div>
-                    </div>
-                </details>
-            </div>
-        </div>`;
-
-        return card;
-    }
-
-    /* ---------- Animate progress bars after render ---------- */
-    function animateProgressBars() {
-        requestAnimationFrame(() => {
-            document.querySelectorAll('.progress-fill').forEach(bar => {
-                const target = bar.dataset.target;
-                setTimeout(() => { bar.style.width = target + '%'; }, 100);
-            });
-        });
-    }
-
-    /* ---------- Main submit handler ---------- */
-    async function handleSubmit() {
-        const jd = jdInput.value.trim();
-        if (!jd || jd.length < 20) {
-            showError('Please enter a job description with at least 20 characters.');
-            return;
+        function setProgress(status, detail) {
+            progressStatus.textContent = status;
+            progressDetail.textContent = detail;
         }
 
-        showLoading();
+        function showLoading() {
+            loadingSection.classList.remove('hidden');
+            errorSection.classList.add('hidden');
+            jdSummary.classList.add('hidden');
+            resultsSection.classList.add('hidden');
+            resultsContainer.innerHTML = '';
+            resultsMeta.textContent = '';
+            setProgress(
+                'Analyzing job description...',
+                'Running hybrid retrieval, deep ranking, and predictive engagement'
+            );
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-60', 'pointer-events-none');
+        }
 
-        try {
-            const resp = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    job_description: jd,
-                    top_k_search: 5,
-                    top_k_final: parseInt(topkSelect.value),
-                }),
-            });
+        function hideLoading() {
+            loadingSection.classList.add('hidden');
+            submitBtn.disabled = false;
+            submitBtn.classList.remove('opacity-60', 'pointer-events-none');
+        }
 
-            if (!resp.ok) {
-                const errBody = await resp.json().catch(() => null);
-                throw new Error(errBody?.detail || `Server returned ${resp.status}`);
-            }
-
-            const data = await resp.json();
+        function showError(message) {
             hideLoading();
+            errorSection.classList.remove('hidden');
+            errorMessage.textContent = message;
+        }
 
-            // Render parsed JD
-            if (data.parsed_job_description) {
-                renderParsedJD(data.parsed_job_description);
+        function scoreColor(score) {
+            if (score >= 80) return { bar: 'bg-emerald-500', text: 'text-emerald-300', ring: '#34d399' };
+            if (score >= 60) return { bar: 'bg-amber-500', text: 'text-amber-300', ring: '#f59e0b' };
+            return { bar: 'bg-rose-500', text: 'text-rose-300', ring: '#f43f5e' };
+        }
+
+        function scoreRingSvg(score, color, size = 70) {
+            const radius = (size / 2) - 4;
+            const circumference = 2 * Math.PI * radius;
+            const offset = circumference * (1 - (score / 100));
+            return `
+                <svg width="${size}" height="${size}" class="-rotate-90">
+                    <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="rgba(71,85,105,0.45)" stroke-width="4"></circle>
+                    <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="${color}" stroke-width="4"
+                        stroke-dasharray="${circumference}" stroke-dashoffset="${offset}" stroke-linecap="round"></circle>
+                </svg>
+            `;
+        }
+
+        function progressBar(score, colorClass) {
+            return `
+                <div class="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
+                    <div class="progress-fill ${colorClass} h-full rounded-full" style="width: 0%" data-target="${score}"></div>
+                </div>
+            `;
+        }
+
+        function animateProgressBars() {
+            requestAnimationFrame(() => {
+                document.querySelectorAll('.progress-fill').forEach(bar => {
+                    setTimeout(() => {
+                        bar.style.width = `${bar.dataset.target}%`;
+                    }, 60);
+                });
+            });
+        }
+
+        function pillList(items, matched = true) {
+            const className = matched ? 'matched-pill' : 'missing-pill';
+            return (items || []).map(item => `
+                <span class="${className} text-[10px] px-2 py-1 rounded-full font-semibold">${item}</span>
+            `).join('');
+        }
+
+        function renderParsedJd(parsedJd) {
+            const sections = [];
+            if (parsedJd.role_title) sections.push({ label: 'Role', value: parsedJd.role_title });
+            if (parsedJd.seniority) sections.push({ label: 'Seniority', value: parsedJd.seniority });
+            if (parsedJd.min_experience_years) sections.push({ label: 'Experience', value: `${parsedJd.min_experience_years}+ years` });
+            if (parsedJd.work_mode) sections.push({ label: 'Work mode', value: parsedJd.work_mode });
+            if (parsedJd.salary_range_usd?.length === 2) {
+                sections.push({
+                    label: 'Salary',
+                    value: `$${parsedJd.salary_range_usd[0].toLocaleString()} - $${parsedJd.salary_range_usd[1].toLocaleString()}`
+                });
             }
+            if (parsedJd.mandatory_skills?.length) sections.push({ label: 'Mandatory', value: parsedJd.mandatory_skills.join(', ') });
+            if (parsedJd.nice_to_have_skills?.length) sections.push({ label: 'Nice to have', value: parsedJd.nice_to_have_skills.join(', ') });
+            if (parsedJd.domain_knowledge?.length) sections.push({ label: 'Domain', value: parsedJd.domain_knowledge.join(', ') });
 
-            // Render results
-            const rankings = data.rankings || [];
-            if (rankings.length === 0) {
-                showError('No candidates matched this job description. Try broadening your requirements.');
+            jdContent.innerHTML = sections.map(section => `
+                <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4 ${section.value.includes(',') ? 'sm:col-span-2 lg:col-span-3' : ''}">
+                    <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">${section.label}</div>
+                    <div class="text-sm text-slate-100 leading-relaxed">${section.value}</div>
+                </div>
+            `).join('');
+            jdSummary.classList.remove('hidden');
+        }
+
+        function renderCandidateCard(candidate, index) {
+            const match = candidate.match_result;
+            const interest = candidate.interest_result;
+            const rank = candidate.rank || (index + 1);
+            const finalTone = scoreColor(candidate.final_score);
+            const matchTone = scoreColor(candidate.match_score || match.match_score);
+            const interestTone = scoreColor(candidate.interest_score || interest.interest_score);
+
+            return `
+                <article class="panel rounded-2xl p-5 sm:p-6 candidate-card">
+                    <div class="flex flex-col lg:flex-row gap-5 lg:items-start lg:justify-between">
+                        <div class="flex-1">
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <span class="px-2.5 py-1 rounded-full bg-slate-800 text-xs font-bold text-slate-200">#${rank}</span>
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/12 text-xs font-semibold text-emerald-300 border border-emerald-500/20">${candidate.recommendation || 'Review'}</span>
+                            </div>
+                            <h3 class="text-xl font-bold">${candidate.candidate_name || candidate.full_name}</h3>
+                            <p class="text-sm text-slate-400 mt-1">${candidate.role_title} | ${match.total_experience_years} years</p>
+                            <p class="text-sm text-slate-200/90 mt-4 leading-relaxed">${candidate.summary || candidate.final_explanation}</p>
+                        </div>
+                        <div class="relative shrink-0 w-[70px] h-[70px]">
+                            ${scoreRingSvg(candidate.final_score, finalTone.ring)}
+                            <span class="absolute inset-0 grid place-items-center text-sm font-extrabold">${candidate.final_score.toFixed(1)}</span>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="uppercase tracking-[0.16em] text-slate-500">Match</span>
+                                <span class="${matchTone.text} font-bold">${(candidate.match_score || match.match_score).toFixed(1)}</span>
+                            </div>
+                            ${progressBar(candidate.match_score || match.match_score, matchTone.bar)}
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="uppercase tracking-[0.16em] text-slate-500">Interest</span>
+                                <span class="${interestTone.text} font-bold">${(candidate.interest_score || interest.interest_score).toFixed(1)}</span>
+                            </div>
+                            ${progressBar(candidate.interest_score || interest.interest_score, interestTone.bar)}
+                        </div>
+                        <div>
+                            <div class="flex justify-between items-center text-xs mb-1">
+                                <span class="uppercase tracking-[0.16em] text-slate-500">Cross Encoder</span>
+                                <span class="text-slate-200 font-bold">${(candidate.cross_encoder_score || 0).toFixed(1)}</span>
+                            </div>
+                            ${progressBar(candidate.cross_encoder_score || 0, 'bg-slate-300')}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 text-sm">
+                        <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Hybrid Sparse</div>
+                            <div class="font-bold text-slate-100">${(candidate.bm25_score || 0).toFixed(2)}</div>
+                        </div>
+                        <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Flight Risk</div>
+                            <div class="font-bold text-slate-100">${(candidate.flight_risk_score || 0).toFixed(1)}</div>
+                        </div>
+                        <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Provider</div>
+                            <div class="font-bold text-slate-100">${interest.provider || 'deterministic'}</div>
+                        </div>
+                    </div>
+
+                    <div class="mt-5">
+                        <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Skills</div>
+                        <div class="flex flex-wrap gap-2">
+                            ${pillList(match.matched_skills || [], true)}
+                            ${pillList(candidate.missing_skills || match.missing_skills || [], false)}
+                        </div>
+                    </div>
+
+                    <details class="mt-5 group">
+                        <summary class="cursor-pointer text-sm font-semibold text-emerald-300">View explanation</summary>
+                        <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
+                            <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                                <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Skill reasoning</div>
+                                <p class="text-slate-200/90 leading-relaxed">${candidate.skill_match_reason || match.explanation}</p>
+                            </div>
+                            <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                                <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Experience and trajectory</div>
+                                <p class="text-slate-200/90 leading-relaxed">${candidate.experience_match_reason || ''}</p>
+                            </div>
+                            <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                                <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Interest insight</div>
+                                <p class="text-slate-200/90 leading-relaxed">${candidate.interest_insight || ''}</p>
+                            </div>
+                            <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                                <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Salary and availability</div>
+                                <p class="text-slate-200/90 leading-relaxed">${candidate.salary_alignment_reason || ''} ${candidate.availability_insight || ''}</p>
+                            </div>
+                            ${candidate.recruiter_outreach ? `
+                                <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4 lg:col-span-2">
+                                    <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Recruiter outreach</div>
+                                    <p class="text-slate-200/90 leading-relaxed">${candidate.recruiter_outreach.message}</p>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </details>
+                </article>
+            `;
+        }
+
+        function renderRankings(rankings, meta) {
+            if (!rankings || rankings.length === 0) return;
+            resultsSection.classList.remove('hidden');
+            resultsContainer.innerHTML = rankings.map((candidate, index) => renderCandidateCard(candidate, index)).join('');
+            if (meta) {
+                resultsMeta.textContent = `${meta.total_candidates_retrieved || '?'} retrieved | ${meta.total_candidates_considered || '?'} scored | page ${meta.page || 1} of ${meta.total_pages || 1}`;
+            }
+            animateProgressBars();
+        }
+
+        async function consumeSse(response, handlers) {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const chunks = buffer.split('\n\n');
+                buffer = chunks.pop() || '';
+
+                for (const chunk of chunks) {
+                    const lines = chunk.split('\n');
+                    let eventName = 'message';
+                    let payload = '';
+
+                    lines.forEach(line => {
+                        if (line.startsWith('event:')) eventName = line.slice(6).trim();
+                        if (line.startsWith('data:')) payload += line.slice(5).trim();
+                    });
+
+                    if (!payload) continue;
+                    const data = JSON.parse(payload);
+                    if (handlers[eventName]) handlers[eventName](data);
+                }
+            }
+        }
+
+        async function handleSubmit() {
+            const jobDescription = jdInput.value.trim();
+            if (!jobDescription || jobDescription.length < 20) {
+                showError('Please enter a job description with at least 20 characters.');
                 return;
             }
 
-            resultsMeta.textContent = `${data.total_candidates_retrieved || '?'} retrieved · ${data.total_candidates_considered || '?'} scored · ${data.total_candidates_returned || rankings.length} returned`;
-            resultsContainer.innerHTML = rankings.map((r, i) => renderCandidateCard(r, i)).join('');
-            resultsSection.classList.remove('hidden');
+            showLoading();
+            const streamed = [];
 
-            animateProgressBars();
+            try {
+                const response = await fetch(STREAM_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        job_description: jobDescription,
+                        top_k_search: Math.max(10, parseInt(topkSelect.value, 10)),
+                        top_k_final: parseInt(topkSelect.value, 10),
+                        page: 1,
+                        page_size: parseInt(topkSelect.value, 10),
+                        include_outreach: true,
+                    }),
+                });
 
-            // Scroll to results
-            setTimeout(() => {
-                jdSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }, 200);
+                if (!response.ok) {
+                    const errorPayload = await response.json().catch(() => null);
+                    throw new Error(errorPayload?.detail || `Server returned ${response.status}`);
+                }
 
-        } catch (err) {
-            showError(err.message || 'Failed to connect to the backend. Is the server running on port 8811?');
+                await consumeSse(response, {
+                    progress(payload) {
+                        setProgress(payload.message || 'Working...', `Stage: ${payload.stage || 'processing'}`);
+                    },
+                    candidate(payload) {
+                        streamed.push({
+                            ...payload,
+                            rank: streamed.length + 1,
+                        });
+                        setProgress(
+                            'Ranking candidates...',
+                            `Received ${streamed.length} candidate result${streamed.length === 1 ? '' : 's'}`
+                        );
+                        renderRankings(
+                            [...streamed].sort((left, right) => right.final_score - left.final_score),
+                            null
+                        );
+                    },
+                    result(payload) {
+                        hideLoading();
+                        if (payload.parsed_job_description) renderParsedJd(payload.parsed_job_description);
+                        if (!payload.rankings || payload.rankings.length === 0) {
+                            showError('No candidates matched this job description. Try broadening the requirements.');
+                            return;
+                        }
+                        renderRankings(payload.rankings, payload);
+                        setTimeout(() => {
+                            jdSummary.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }, 150);
+                    },
+                    error(payload) {
+                        throw new Error(payload.detail || 'Streaming request failed.');
+                    },
+                });
+            } catch (error) {
+                showError(error.message || 'Failed to connect to the backend.');
+            }
         }
-    }
 
-    /* ---------- Keyboard shortcut ---------- */
-    jdInput.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-            handleSubmit();
-        }
-    });
+        submitBtn.addEventListener('click', handleSubmit);
+        jdInput.addEventListener('keydown', event => {
+            if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                handleSubmit();
+            }
+        });
     </script>
 </body>
 </html>
