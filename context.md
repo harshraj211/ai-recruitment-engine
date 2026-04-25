@@ -8,13 +8,19 @@ Harden the original hackathon talent scouting prototype into a production-orient
 
 ```text
 Frontend (static single-page app)
+  -> Data Source Selector (Local Dataset / Upload JSON / Simulated External API)
   -> Input Mode Selector (Manual / Demo Data / AI Generate)
+  -> POST /api/v1/data-source/local
+  -> POST /api/v1/data-source/upload
+  -> POST /api/v1/data-source/mock-api
   -> POST /api/v1/generate-jd (AI mode)
   -> POST /api/v1/match/stream
   -> progressive progress + candidate events
 
 FastAPI API Layer
   -> async /health
+  -> async /data-source
+  -> async /mock-candidates
   -> async /match
   -> async /match/stream (SSE)
   -> async /generate-jd (Groq LLM with fallback)
@@ -31,6 +37,7 @@ Pipeline Orchestrator
 
 Data / Models
   -> Candidate JSON dataset
+  -> Runtime candidate source switcher
   -> SentenceTransformers embeddings
   -> FAISS HNSW or IVFFlat indexes
   -> BM25 sparse index
@@ -77,6 +84,11 @@ Data / Models
   - contradictory LLM summary/outreach text
 - API errors are now returned as structured stage-specific payloads.
 - Health checks report candidate data, vector index, and LLM mode.
+- Candidate data source mode now supports:
+  - Local Dataset using `data/candidates/candidates.json`
+  - Upload JSON with validation for `name`, `skills`, `experience`, and `salary`
+  - Simulated External API via `GET /api/v1/mock-candidates`
+- Data source switches clear candidate/JD parser caches and remove stale FAISS files so the existing matching pipeline uses the active dataset on the next run.
 - API responses now include flattened product-facing fields:
   - `candidate_name`
   - `match_score`
@@ -96,6 +108,10 @@ Data / Models
   - **Manual Input**: free-form textarea (default, unchanged behavior).
   - **Use Demo Data**: dropdown with 5 predefined roles (ML Engineer, Backend Engineer, Data Scientist, Frontend Engineer, DevOps Engineer) that auto-fill the textarea.
   - **Generate with AI**: enter any role title and generate a realistic JD via Groq LLM. Includes loading spinner, success/error status banner, and automatic fallback to demo data if Groq fails.
+- Frontend now includes a Data Source Selector with three modes:
+  - **Local Dataset**: default active source.
+  - **Upload JSON**: accepts a browser JSON file upload and activates validated records.
+  - **Simulated External API**: switches to the mock external candidate endpoint.
 
 ## Key Services
 
@@ -111,10 +127,12 @@ Data / Models
 - `app/services/response_validation.py`
 - `app/services/ranking_consistency.py`
 - `app/services/pipeline_service.py`
+- `app/services/candidate_store.py`
 
 ## Key Routes
 
 - `app/api/routes/system.py`
+- `app/api/routes/data_sources.py`
 - `app/api/routes/matching.py`
 - `app/api/routes/generate_jd.py`
 
@@ -122,6 +140,11 @@ Data / Models
 
 - `GET /api`
 - `GET /api/v1/health`
+- `GET /api/v1/data-source`
+- `POST /api/v1/data-source/local`
+- `POST /api/v1/data-source/upload`
+- `GET /api/v1/mock-candidates`
+- `POST /api/v1/data-source/mock-api`
 - `POST /api/v1/match`
 - `POST /api/v1/match/stream`
 - `POST /api/v1/generate-jd`
@@ -153,12 +176,14 @@ Structured error payloads now use:
 
 ## Verified Commands
 
+- `.\\.venv\\Scripts\\python -m pytest tests\\test_data_sources.py -q`
+- `.\\.venv\\Scripts\\python -m pytest tests\\test_system_routes.py -q`
 - `.\\.venv\\Scripts\\python -m pytest tests -q`
 - `.\\.venv\\Scripts\\python scripts\\live_api_test.py`
 
 ## Current Test Status
 
-- `38 passed`
+- `42 passed`
 
 ## Run Locally
 
@@ -173,6 +198,9 @@ Structured error payloads now use:
 
 - `requirements.txt` now includes `spacy` and `rank-bm25`.
 - The local frontend is intentionally static and backend-served for demo simplicity.
+- Uploaded candidates are runtime-scoped and do not overwrite `data/candidates/candidates.json`.
+- The active source switch lives in `candidate_store`, so the matching pipeline does not need source-specific branches.
 - External LLM failures no longer silently change candidate scoring behavior; deterministic scoring and response validation remain the source of truth.
 - The `/generate-jd` endpoint uses a dedicated Groq prompt with temperature 0.4 for creative-but-grounded output, and always falls back to a deterministic template on any failure (no API key, network error, short response, etc.).
 - The Input Mode Selector only extends input handling; no core pipeline logic was modified.
+- The Data Source Selector only changes candidate ingestion and cache invalidation; no core matching logic was modified.

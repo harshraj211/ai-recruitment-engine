@@ -147,6 +147,42 @@
                 </div>
             </div>
 
+            <!-- ── Data Source Controls ────────────────────────────── -->
+            <div class="mb-5">
+                <p class="text-xs uppercase tracking-[0.18em] text-slate-400 mb-3">Data Source</p>
+                <div class="flex flex-wrap gap-2" id="data-source-selector">
+                    <label class="group cursor-pointer">
+                        <input type="radio" name="data-source" value="local" checked class="sr-only peer">
+                        <span class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 transition-all peer-checked:border-emerald-500/60 peer-checked:bg-emerald-500/10 peer-checked:text-emerald-300 hover:border-slate-500">
+                            Local Dataset
+                        </span>
+                    </label>
+                    <label class="group cursor-pointer">
+                        <input type="radio" name="data-source" value="upload" class="sr-only peer">
+                        <span class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 transition-all peer-checked:border-sky-500/60 peer-checked:bg-sky-500/10 peer-checked:text-sky-300 hover:border-slate-500">
+                            Upload JSON
+                        </span>
+                    </label>
+                    <label class="group cursor-pointer">
+                        <input type="radio" name="data-source" value="mock_api" class="sr-only peer">
+                        <span class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 transition-all peer-checked:border-amber-500/60 peer-checked:bg-amber-500/10 peer-checked:text-amber-300 hover:border-slate-500">
+                            Simulated External API
+                        </span>
+                    </label>
+                </div>
+                <div id="upload-controls" class="hidden mt-4">
+                    <input
+                        id="candidate-upload-input"
+                        type="file"
+                        accept=".json,application/json"
+                        class="block w-full text-sm text-slate-300 file:mr-4 file:rounded-xl file:border-0 file:bg-sky-500 file:px-4 file:py-2.5 file:text-sm file:font-bold file:text-slate-950 hover:file:bg-sky-400"
+                    >
+                </div>
+                <div id="data-source-status" class="mt-3 rounded-xl px-4 py-2.5 text-sm border border-emerald-500/40 bg-emerald-500/8 text-emerald-300">
+                    Local Dataset active
+                </div>
+            </div>
+
             <!-- ── Demo Data Controls (hidden by default) ──────────── -->
             <div id="demo-controls" class="hidden mb-4">
                 <label for="demo-role-select" class="block text-xs uppercase tracking-[0.16em] text-slate-400 mb-2">
@@ -468,6 +504,10 @@
         const generateSpinner = document.getElementById('generate-spinner');
         const generateBtnText = document.getElementById('generate-btn-text');
         const aiStatus = document.getElementById('ai-status');
+        const dataSourceSelector = document.getElementById('data-source-selector');
+        const uploadControls = document.getElementById('upload-controls');
+        const candidateUploadInput = document.getElementById('candidate-upload-input');
+        const dataSourceStatus = document.getElementById('data-source-status');
 
         // ── Predefined demo JDs ──────────────────────────────
         const DEMO_JDS = {
@@ -479,6 +519,89 @@
         };
 
         const GENERATE_JD_URL = '/api/v1/generate-jd';
+        const DATA_SOURCE_URL = '/api/v1/data-source';
+        const MOCK_CANDIDATES_URL = '/api/v1/mock-candidates';
+
+        let currentDataSource = 'local';
+        let dataSourceReady = true;
+
+        function showDataSourceStatus(message, type = 'success') {
+            dataSourceStatus.className = 'mt-3 rounded-xl px-4 py-2.5 text-sm border';
+            if (type === 'error') {
+                dataSourceStatus.classList.add('border-rose-500/40', 'bg-rose-500/8', 'text-rose-300');
+            } else if (type === 'info') {
+                dataSourceStatus.classList.add('border-sky-500/40', 'bg-sky-500/8', 'text-sky-300');
+            } else {
+                dataSourceStatus.classList.add('border-emerald-500/40', 'bg-emerald-500/8', 'text-emerald-300');
+            }
+            dataSourceStatus.textContent = message;
+        }
+
+        async function activateDataSource(mode) {
+            currentDataSource = mode;
+            uploadControls.classList.toggle('hidden', mode !== 'upload');
+
+            if (mode === 'upload') {
+                dataSourceReady = false;
+                candidateUploadInput.value = '';
+                showDataSourceStatus('Upload JSON selected', 'info');
+                return;
+            }
+
+            dataSourceReady = false;
+            const endpoint = mode === 'mock_api'
+                ? `${DATA_SOURCE_URL}/mock-api`
+                : `${DATA_SOURCE_URL}/local`;
+
+            try {
+                if (mode === 'mock_api') {
+                    await fetch(MOCK_CANDIDATES_URL);
+                }
+                const response = await fetch(endpoint, { method: 'POST' });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(payload.detail || `Server returned ${response.status}`);
+                }
+                dataSourceReady = true;
+                showDataSourceStatus(payload.detail || `${payload.label} active`, 'success');
+            } catch (error) {
+                showDataSourceStatus(error?.message || 'Data source switch failed.', 'error');
+            }
+        }
+
+        async function handleCandidateUpload(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            dataSourceReady = false;
+            showDataSourceStatus('Validating candidate JSON...', 'info');
+
+            try {
+                const text = await file.text();
+                const parsed = JSON.parse(text);
+                const records = Array.isArray(parsed) ? parsed : parsed.candidates;
+                const response = await fetch(`${DATA_SOURCE_URL}/upload`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ candidates: records }),
+                });
+                const payload = await response.json().catch(() => ({}));
+                if (!response.ok) {
+                    throw new Error(payload.detail || `Server returned ${response.status}`);
+                }
+                dataSourceReady = true;
+                showDataSourceStatus(payload.detail || 'Uploaded candidate dataset active.', 'success');
+            } catch (error) {
+                showDataSourceStatus(error?.message || 'Invalid candidate JSON.', 'error');
+            }
+        }
+
+        dataSourceSelector.addEventListener('change', (event) => {
+            if (event.target.name === 'data-source') {
+                activateDataSource(event.target.value);
+            }
+        });
+        candidateUploadInput.addEventListener('change', handleCandidateUpload);
 
         // ── Input mode switching ─────────────────────────────
         let currentMode = 'manual';
@@ -974,6 +1097,13 @@
             const jobDescription = jdInput.value.trim();
             if (!jobDescription || jobDescription.length < 20) {
                 showError('Please enter a job description with at least 20 characters.');
+                return;
+            }
+            if (!dataSourceReady) {
+                const message = currentDataSource === 'upload'
+                    ? 'Upload a valid candidate JSON file before analyzing candidates.'
+                    : 'Candidate data source is still loading. Try again in a moment.';
+                showError(message);
                 return;
             }
 

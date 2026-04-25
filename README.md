@@ -1,43 +1,35 @@
 # AI-Powered Talent Scouting & Engagement Agent
 
-Production-oriented hardening pass of the original talent scouting prototype. The system now uses hybrid retrieval, deep re-ranking, predictive engagement scoring, response validation, explainable outputs, and a demo-safe streaming UX while staying inside the existing FastAPI + local data architecture.
+A FastAPI-based recruitment intelligence demo that parses job descriptions, retrieves relevant candidates, ranks the shortlist, and generates recruiter-ready explanations. The app is designed for local demos while showing how production systems separate matching logic from candidate data ingestion.
 
-## What Changed
+## Highlights
 
-- Async FastAPI pipeline and async orchestration
-- spaCy-based JD parsing with skill taxonomy
-- `mandatory_skills`, `nice_to_have_skills`, `domain_knowledge`
-- Skill adjacency matching through `SkillGraphService`
-- Time-decayed skill evidence from candidate role history
-- JD-normalized skill coverage scoring based on required skills only
-- Hybrid L1 retrieval:
-  - BM25 sparse search with `rank-bm25`
-  - dual dense embeddings for profile and skill text
-  - FAISS ANN indexes (`hnsw` by default, `ivfflat` supported)
-  - reciprocal rank fusion
-  - mandatory-skill and salary prefilters
-- L2 re-ranking with `cross-encoder/ms-marco-MiniLM-L-6-v2`
-- Deterministic predictive engagement and flight-risk scoring
-- Response validation layer that auto-corrects API payload inconsistencies before emit
-- LLM use restricted to recruiter summaries and outreach
-- Outreach and summary prompts grounded to target-role, salary alignment, and verified skill lists
-- PII masking before LLM prompts
-- Structured pipeline-stage errors instead of generic 500 responses
-- Health endpoint now reports component checks for candidate data, vector index, and LLM mode
-- SSE streaming endpoint for progressive frontend rendering
-- Pagination-ready API responses
-- Deterministic ranking order with stronger protection against candidates missing mandatory skills
-- Frontend loading skeletons, clearer score labels, and deterministic demo fallback rendering
+- Static frontend served by FastAPI
+- Local candidate dataset with runtime data-source switching
+- Upload JSON flow with candidate schema validation
+- Simulated external candidate API for demo ingestion
+- Job-description parsing with role, skill, salary, and work-mode extraction
+- Hybrid retrieval with BM25, dense embeddings, FAISS, and reciprocal rank fusion
+- Cross-encoder re-ranking
+- Technical match, engagement, flight-risk, and final ranking scores
+- SSE streaming for progressive frontend results
+- Structured stage-specific API errors
+- Deterministic fallback behavior when optional LLM generation is unavailable
 
 ## Architecture
 
 ```text
 Frontend
-  -> /api/v1/match/stream
+  -> Data Source selector
+  -> Input Mode selector
+  -> POST /api/v1/match/stream
 
 FastAPI
+  -> /api/v1/data-source
+  -> /api/v1/mock-candidates
   -> /api/v1/match
   -> /api/v1/match/stream
+  -> /api/v1/generate-jd
 
 Pipeline
   -> JD Parser
@@ -50,48 +42,97 @@ Pipeline
   -> Final Ranking + Pagination
 ```
 
-## Core Modules
+## Setup
 
-- `app/services/jd_parser.py`
-- `app/services/skill_graph.py`
-- `app/services/experience_intelligence.py`
-- `app/services/vector_store.py`
-- `app/services/cross_encoder_service.py`
-- `app/services/match_scoring.py`
-- `app/services/interest_scoring.py`
-- `app/services/conversation_service.py`
-- `app/services/final_ranking.py`
-- `app/services/response_validation.py`
-- `app/services/ranking_consistency.py`
-- `app/services/pipeline_service.py`
-
-## Install
+Use Python 3.11 for the full local stack.
 
 ```powershell
 py -3.11 -m venv .venv
-.\\.venv\\Scripts\\activate
+.\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
-
-Python 3.11 is still the recommended runtime for the full local stack.
 
 ## Run
 
 ```powershell
-.\\.venv\\Scripts\\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+.\.venv\Scripts\python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 - Frontend: `http://127.0.0.1:8000/`
 - API docs: `http://127.0.0.1:8000/docs`
 - Health: `http://127.0.0.1:8000/api/v1/health`
 
-Set `LOG_LEVEL=DEBUG` in `.env` if you want per-candidate score component logs during a demo rehearsal.
+Optional `.env` values:
 
-## API
+```env
+GROQ_API_KEY=
+LOG_LEVEL=INFO
+```
+
+When `GROQ_API_KEY` is not configured, scoring still runs deterministically and JD generation uses a local fallback template.
+
+## Data Source Modes
+
+The frontend includes a `Data Source` selector:
+
+- `Local Dataset`: uses `data/candidates/candidates.json`.
+- `Upload JSON`: validates uploaded records and activates them for the current runtime session.
+- `Simulated External API`: loads candidates through a mock external-source endpoint.
+
+Upload records must include:
+
+```json
+[
+  {
+    "name": "Neha Kapoor",
+    "skills": ["Python", "FastAPI", "PostgreSQL"],
+    "experience": 4,
+    "salary": 70000
+  }
+]
+```
+
+The upload flow also accepts `full_name`, `total_experience_years`, and `expected_salary_usd` aliases so full candidate records can be reused.
+
+## API Reference
+
+### `GET /api/v1/data-source`
+
+Returns the active candidate source and candidate count.
+
+### `POST /api/v1/data-source/local`
+
+Switches matching back to the checked-in local dataset.
+
+### `POST /api/v1/data-source/upload`
+
+Activates uploaded candidate JSON after validation.
+
+```json
+{
+  "candidates": [
+    {
+      "name": "Arjun Rao",
+      "role": "ML Engineer",
+      "skills": "Python, PyTorch, AWS",
+      "experience": "6",
+      "salary": "95k"
+    }
+  ]
+}
+```
+
+### `GET /api/v1/mock-candidates`
+
+Returns candidate data in the same structure a real external system could provide.
+
+### `POST /api/v1/data-source/mock-api`
+
+Activates the simulated external API dataset for matching.
 
 ### `POST /api/v1/match`
 
-Request body:
+Runs the matching pipeline and returns ranked candidates.
 
 ```json
 {
@@ -104,75 +145,27 @@ Request body:
 }
 ```
 
-Corrected response highlights:
-
-```json
-{
-  "parsed_job_description": {
-    "role_title": "Machine Learning Engineer",
-    "mandatory_skills": ["Python", "FastAPI", "PyTorch", "Docker", "AWS", "MLflow", "Vector Search"],
-    "nice_to_have_skills": ["RAG"]
-  },
-  "rankings": [
-    {
-      "candidate_name": "Rohan Mehta",
-      "match_score": 84.4,
-      "interest_score": 78.6,
-      "final_score": 81.6,
-      "bm25_score": 0.91,
-      "cross_encoder_score": 82.0,
-      "flight_risk_score": 63.0,
-      "summary": "Strong fit on Python, FastAPI, PyTorch, and MLflow, with Vector Search as the primary gap.",
-      "missing_skills": ["Vector Search", "RAG"],
-      "recommendation": "Review manually before outreach due to missing critical skills."
-    }
-  ],
-  "page": 1,
-  "total_pages": 1
-}
-```
-
-Score semantics:
-
-- `final_score`: combined ranking score using `0.50 * match_score + 0.25 * interest_score + 0.25 * cross_encoder_score`
-- `match_score`: technical score using weighted skill coverage, experience fit, role alignment, and mandatory-skill penalty
-- `interest_score`: uses salary alignment, availability, and engagement probability only
-- `flight_risk_score`: tracked separately from `interest_score`
-- `cross_encoder_score`: deep re-ranker signal shown separately from the combined score
-- `missing_skills`: corrected to match the computed nested `match_result.missing_skills`
-
-### Structured Errors
-
-When a pipeline stage fails, the API now returns structured JSON:
-
-```json
-{
-  "status": "error",
-  "error": {
-    "code": "retrieval_failed",
-    "stage": "retrieval",
-    "message": "Hybrid retrieval failed."
-  },
-  "detail": "Hybrid retrieval failed."
-}
-```
-
 ### `POST /api/v1/match/stream`
 
-Returns `text/event-stream` with:
+Returns `text/event-stream` events:
 
 - `progress`
 - `candidate`
 - `result`
 - `error`
 
-The frontend uses a preloaded deterministic shortlist as a demo fallback if the live API call fails.
+## Development
 
-## Verification
+Run the test suite:
 
 ```powershell
-.\\.venv\\Scripts\\python -m pytest tests -q
-.\\.venv\\Scripts\\python scripts\\live_api_test.py
+.\.venv\Scripts\python -m pytest tests -q
 ```
 
-Current status: `38 passed`
+Build or refresh the FAISS index manually:
+
+```powershell
+.\.venv\Scripts\python scripts\build_faiss_index.py
+```
+
+Runtime artifacts are written under `data/faiss/` and `data/conversations/`, both ignored by git.

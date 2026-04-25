@@ -31,6 +31,18 @@ def configure_logging() -> None:
 async def lifespan(_: FastAPI):
     configure_logging()
     ensure_runtime_dirs()
+    # Warm up embedding model + vector index on startup so the first
+    # request doesn't pay the cold-start cost (which can exceed timeouts).
+    try:
+        import asyncio
+        from app.services.vector_store import CandidateVectorStore
+
+        store = CandidateVectorStore()
+        logging.getLogger(__name__).info("Warming up embedding model and vector index...")
+        await asyncio.to_thread(store._load_index_if_needed)
+        logging.getLogger(__name__).info("Warm-up complete.")
+    except Exception as exc:
+        logging.getLogger(__name__).warning("Warm-up failed (will retry on first request): %s", exc)
     yield
 
 
@@ -63,6 +75,8 @@ async def api_info() -> dict[str, str]:
         "message": "Talent scouting backend is running.",
         "docs_url": "/docs",
         "health_url": f"{settings.api_v1_prefix}/health",
+        "data_source_url": f"{settings.api_v1_prefix}/data-source",
+        "mock_candidates_url": f"{settings.api_v1_prefix}/mock-candidates",
         "match_url": f"{settings.api_v1_prefix}/match",
         "stream_match_url": f"{settings.api_v1_prefix}/match/stream",
         "stage": "step_9_api_ready",

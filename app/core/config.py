@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     rrf_k: int = 60
     top_k_rerank: int = 20
     conversation_log_path: str = "data/conversations"
-    pipeline_stage_timeout_seconds: float = 20.0
+    pipeline_stage_timeout_seconds: float = 120.0
     candidate_scoring_timeout_seconds: float = 10.0
     llm_timeout_seconds: float = 20.0
     llm_max_retries: int = 2
