@@ -119,6 +119,77 @@
         </section>
 
         <section class="panel rounded-2xl p-6 sm:p-8 mb-8">
+            <!-- ── Input Mode Selector ─────────────────────────────── -->
+            <div class="mb-5">
+                <p class="text-xs uppercase tracking-[0.18em] text-slate-400 mb-3">Input Mode</p>
+                <div class="flex flex-wrap gap-2" id="mode-selector">
+                    <label class="mode-option group cursor-pointer">
+                        <input type="radio" name="input-mode" value="manual" checked class="sr-only peer">
+                        <span class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 transition-all peer-checked:border-emerald-500/60 peer-checked:bg-emerald-500/10 peer-checked:text-emerald-300 hover:border-slate-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                            Manual Input
+                        </span>
+                    </label>
+                    <label class="mode-option group cursor-pointer">
+                        <input type="radio" name="input-mode" value="demo" class="sr-only peer">
+                        <span class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 transition-all peer-checked:border-amber-500/60 peer-checked:bg-amber-500/10 peer-checked:text-amber-300 hover:border-slate-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                            Use Demo Data
+                        </span>
+                    </label>
+                    <label class="mode-option group cursor-pointer">
+                        <input type="radio" name="input-mode" value="ai" class="sr-only peer">
+                        <span class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-700 text-sm font-semibold text-slate-300 transition-all peer-checked:border-violet-500/60 peer-checked:bg-violet-500/10 peer-checked:text-violet-300 hover:border-slate-500">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                            Generate with AI
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- ── Demo Data Controls (hidden by default) ──────────── -->
+            <div id="demo-controls" class="hidden mb-4">
+                <label for="demo-role-select" class="block text-xs uppercase tracking-[0.16em] text-slate-400 mb-2">
+                    Select a role
+                </label>
+                <select
+                    id="demo-role-select"
+                    class="w-full sm:w-auto rounded-xl bg-slate-950/70 border border-slate-700 px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500/30"
+                >
+                    <option value="ml_engineer">ML Engineer</option>
+                    <option value="backend_engineer">Backend Engineer</option>
+                    <option value="data_scientist">Data Scientist</option>
+                    <option value="frontend_engineer">Frontend Engineer</option>
+                    <option value="devops_engineer">DevOps Engineer</option>
+                </select>
+            </div>
+
+            <!-- ── AI Generate Controls (hidden by default) ─────────── -->
+            <div id="ai-controls" class="hidden mb-4">
+                <label for="ai-role-input" class="block text-xs uppercase tracking-[0.16em] text-slate-400 mb-2">
+                    Role title for AI generation
+                </label>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input
+                        id="ai-role-input"
+                        type="text"
+                        value="Machine Learning Engineer"
+                        maxlength="120"
+                        class="flex-1 rounded-xl bg-slate-950/70 border border-slate-700 px-4 py-2.5 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/30"
+                        placeholder="e.g. Staff Data Engineer"
+                    >
+                    <button
+                        id="generate-jd-btn"
+                        type="button"
+                        class="inline-flex items-center justify-center gap-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold px-5 py-2.5 text-sm transition-colors whitespace-nowrap"
+                    >
+                        <svg id="generate-spinner" class="hidden animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+                        <span id="generate-btn-text">⚡ Generate Job Description</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- ── Textarea ─────────────────────────────────────────── -->
             <label for="jd-input" class="block text-sm font-semibold text-slate-200 mb-3">
                 Job Description
             </label>
@@ -128,6 +199,9 @@
                 class="w-full rounded-2xl bg-slate-950/70 border border-slate-700 px-4 py-4 text-sm text-slate-100 placeholder:text-slate-500 resize-y focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
                 placeholder="We are hiring a Senior Machine Learning Engineer for a talent intelligence platform. Must have Python, FastAPI, PyTorch, Docker, AWS, and vector search. Nice to have MLflow and RAG. Experience in HR tech or search is valuable. Salary budget is $50,000 to $65,000 and this role is remote."
             ></textarea>
+
+            <!-- ── AI generate status banner ────────────────────────── -->
+            <div id="ai-status" class="hidden mt-3 rounded-xl px-4 py-2.5 text-sm border"></div>
 
             <div class="flex flex-col sm:flex-row gap-4 sm:items-center sm:justify-between mt-5">
                 <div class="flex items-center gap-3">
@@ -384,6 +458,136 @@
         const progressStatus = document.getElementById('progress-status');
         const progressDetail = document.getElementById('progress-detail');
 
+        // ── New DOM refs for input mode selector ──────────────
+        const modeSelector = document.getElementById('mode-selector');
+        const demoControls = document.getElementById('demo-controls');
+        const demoRoleSelect = document.getElementById('demo-role-select');
+        const aiControls = document.getElementById('ai-controls');
+        const aiRoleInput = document.getElementById('ai-role-input');
+        const generateJdBtn = document.getElementById('generate-jd-btn');
+        const generateSpinner = document.getElementById('generate-spinner');
+        const generateBtnText = document.getElementById('generate-btn-text');
+        const aiStatus = document.getElementById('ai-status');
+
+        // ── Predefined demo JDs ──────────────────────────────
+        const DEMO_JDS = {
+            ml_engineer: 'We are hiring a Senior Machine Learning Engineer to design, build, and deploy production ML systems. The ideal candidate has 4+ years of experience with Python, PyTorch or TensorFlow, Docker, and cloud platforms (AWS/GCP). Must be skilled in feature engineering, model evaluation, and CI/CD for ML pipelines. Nice to have: MLflow, Ray, vector databases, and RAG architectures. Salary range: $130,000–$175,000. Remote-friendly.',
+            backend_engineer: 'We are looking for a Backend Engineer to build and maintain scalable APIs and microservices. Requirements: 3+ years with Python or Go, FastAPI or Django, PostgreSQL, Redis, Docker, and Kubernetes. Experience with event-driven architectures and CI/CD pipelines is essential. Nice to have: GraphQL, gRPC, and observability tooling (Prometheus, Grafana). Salary range: $120,000–$160,000. Hybrid.',
+            data_scientist: 'We are hiring a Data Scientist to drive insights and predictive models across our product analytics stack. Must have 3+ years of experience with Python, SQL, Pandas, scikit-learn, and statistical modeling. Experience with A/B testing, causal inference, and dashboarding tools (Looker, Tableau) is expected. Nice to have: deep learning, NLP, and Spark. Salary range: $115,000–$155,000. Remote.',
+            frontend_engineer: 'We are seeking a Frontend Engineer to craft performant, accessible web experiences. Requirements: 3+ years with React or Vue, TypeScript, HTML/CSS, and modern build tools (Vite, Webpack). Must understand responsive design, accessibility standards, and state management. Nice to have: Next.js, Storybook, and design-system experience. Salary range: $110,000–$150,000. Remote-friendly.',
+            devops_engineer: 'We are hiring a DevOps Engineer to own our cloud infrastructure and CI/CD pipelines. Requirements: 3+ years with AWS or GCP, Terraform, Docker, Kubernetes, and GitHub Actions or Jenkins. Must be comfortable with monitoring (Datadog, Prometheus) and incident response. Nice to have: service mesh, GitOps, and cost-optimization experience. Salary range: $125,000–$170,000. Remote.',
+        };
+
+        const GENERATE_JD_URL = '/api/v1/generate-jd';
+
+        // ── Input mode switching ─────────────────────────────
+        let currentMode = 'manual';
+
+        function switchMode(mode) {
+            currentMode = mode;
+            demoControls.classList.toggle('hidden', mode !== 'demo');
+            aiControls.classList.toggle('hidden', mode !== 'ai');
+            aiStatus.classList.add('hidden');
+
+            if (mode === 'manual') {
+                jdInput.readOnly = false;
+                jdInput.value = DEFAULT_DEMO_JD;
+                jdInput.classList.remove('opacity-60');
+            } else if (mode === 'demo') {
+                jdInput.readOnly = false;
+                jdInput.value = DEMO_JDS[demoRoleSelect.value] || DEFAULT_DEMO_JD;
+                jdInput.classList.remove('opacity-60');
+            } else if (mode === 'ai') {
+                jdInput.readOnly = false;
+                jdInput.value = '';
+                jdInput.classList.remove('opacity-60');
+            }
+        }
+
+        modeSelector.addEventListener('change', (e) => {
+            if (e.target.name === 'input-mode') switchMode(e.target.value);
+        });
+
+        demoRoleSelect.addEventListener('change', () => {
+            if (currentMode === 'demo') {
+                jdInput.value = DEMO_JDS[demoRoleSelect.value] || DEFAULT_DEMO_JD;
+            }
+        });
+
+        // ── AI JD Generation ─────────────────────────────────
+        function showAiStatus(message, type) {
+            aiStatus.classList.remove('hidden');
+            aiStatus.className = 'mt-3 rounded-xl px-4 py-2.5 text-sm border';
+            if (type === 'success') {
+                aiStatus.classList.add('border-emerald-500/40', 'bg-emerald-500/8', 'text-emerald-300');
+            } else if (type === 'error') {
+                aiStatus.classList.add('border-rose-500/40', 'bg-rose-500/8', 'text-rose-300');
+            } else {
+                aiStatus.classList.add('border-violet-500/40', 'bg-violet-500/8', 'text-violet-300');
+            }
+            aiStatus.textContent = message;
+        }
+
+        function setGenerateLoading(loading) {
+            generateSpinner.classList.toggle('hidden', !loading);
+            generateBtnText.textContent = loading ? 'Generating...' : '⚡ Generate Job Description';
+            generateJdBtn.disabled = loading;
+            generateJdBtn.classList.toggle('opacity-60', loading);
+            generateJdBtn.classList.toggle('pointer-events-none', loading);
+        }
+
+        async function handleGenerateJd() {
+            const role = aiRoleInput.value.trim();
+            if (!role || role.length < 2) {
+                showAiStatus('Please enter a role title (at least 2 characters).', 'error');
+                return;
+            }
+
+            setGenerateLoading(true);
+            showAiStatus('Generating job description with AI...', 'info');
+
+            try {
+                const response = await fetch(GENERATE_JD_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server returned ${response.status}`);
+                }
+
+                const data = await response.json();
+                jdInput.value = data.job_description;
+
+                if (data.provider === 'fallback') {
+                    showAiStatus('AI unavailable — filled with a high-quality template instead.', 'error');
+                } else {
+                    showAiStatus(`Generated by ${data.provider} ✓`, 'success');
+                }
+            } catch (err) {
+                // Fallback to local demo data
+                const normalized = role.toLowerCase();
+                let fallbackJd = null;
+                for (const [key, jd] of Object.entries(DEMO_JDS)) {
+                    if (key.replace(/_/g, ' ').includes(normalized) || normalized.includes(key.replace(/_/g, ' '))) {
+                        fallbackJd = jd;
+                        break;
+                    }
+                }
+                jdInput.value = fallbackJd || DEMO_JDS.ml_engineer;
+                showAiStatus(`AI generation failed (${err.message}). Filled with demo data instead.`, 'error');
+            } finally {
+                setGenerateLoading(false);
+            }
+        }
+
+        generateJdBtn.addEventListener('click', handleGenerateJd);
+        aiRoleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleGenerateJd();
+        });
+
+        // ── Initialize default ───────────────────────────────
         jdInput.value = DEFAULT_DEMO_JD;
 
         function escapeHtml(value) {

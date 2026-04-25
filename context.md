@@ -8,6 +8,8 @@ Harden the original hackathon talent scouting prototype into a production-orient
 
 ```text
 Frontend (static single-page app)
+  -> Input Mode Selector (Manual / Demo Data / AI Generate)
+  -> POST /api/v1/generate-jd (AI mode)
   -> POST /api/v1/match/stream
   -> progressive progress + candidate events
 
@@ -15,6 +17,7 @@ FastAPI API Layer
   -> async /health
   -> async /match
   -> async /match/stream (SSE)
+  -> async /generate-jd (Groq LLM with fallback)
 
 Pipeline Orchestrator
   -> spaCy JD parsing
@@ -62,6 +65,7 @@ Data / Models
 - LLM usage is restricted to:
   - recruiter outreach generation
   - concise recruiter summaries
+  - AI-powered job description generation (via `/generate-jd`)
 - Outreach prompts reference only the target JD role title, not the candidate's current role title.
 - Summary and outreach prompts include verified matched skills, verified missing skills, role, and salary alignment, plus contradiction guards against hallucinated gaps.
 - PII is masked before LLM prompts.
@@ -88,6 +92,10 @@ Data / Models
 - Frontend now streams progress and candidate cards progressively via SSE.
 - Frontend score labels now distinguish `Final Score (Combined)`, `Technical Match Score`, `Interest Score`, and `Re-ranker Score`.
 - Frontend includes loading skeletons, structured error rendering, and a deterministic demo fallback shortlist if the live API fails.
+- Frontend now includes an Input Mode Selector with three modes:
+  - **Manual Input**: free-form textarea (default, unchanged behavior).
+  - **Use Demo Data**: dropdown with 5 predefined roles (ML Engineer, Backend Engineer, Data Scientist, Frontend Engineer, DevOps Engineer) that auto-fill the textarea.
+  - **Generate with AI**: enter any role title and generate a realistic JD via Groq LLM. Includes loading spinner, success/error status banner, and automatic fallback to demo data if Groq fails.
 
 ## Key Services
 
@@ -104,12 +112,19 @@ Data / Models
 - `app/services/ranking_consistency.py`
 - `app/services/pipeline_service.py`
 
+## Key Routes
+
+- `app/api/routes/system.py`
+- `app/api/routes/matching.py`
+- `app/api/routes/generate_jd.py`
+
 ## API Surface
 
 - `GET /api`
 - `GET /api/v1/health`
 - `POST /api/v1/match`
 - `POST /api/v1/match/stream`
+- `POST /api/v1/generate-jd`
 
 ## Current Response Shape Highlights
 
@@ -159,3 +174,5 @@ Structured error payloads now use:
 - `requirements.txt` now includes `spacy` and `rank-bm25`.
 - The local frontend is intentionally static and backend-served for demo simplicity.
 - External LLM failures no longer silently change candidate scoring behavior; deterministic scoring and response validation remain the source of truth.
+- The `/generate-jd` endpoint uses a dedicated Groq prompt with temperature 0.4 for creative-but-grounded output, and always falls back to a deterministic template on any failure (no API key, network error, short response, etc.).
+- The Input Mode Selector only extends input handling; no core pipeline logic was modified.
