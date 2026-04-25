@@ -39,14 +39,24 @@
         body {
             font-family: 'Manrope', system-ui, sans-serif;
             background:
-                radial-gradient(circle at top, rgba(16, 185, 129, 0.10), transparent 28%),
+                linear-gradient(rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(148, 163, 184, 0.035) 1px, transparent 1px),
+                linear-gradient(135deg, rgba(16, 185, 129, 0.10) 0%, transparent 32%),
+                linear-gradient(225deg, rgba(14, 165, 233, 0.08) 0%, transparent 30%),
                 linear-gradient(180deg, #0b1020 0%, #0f172a 40%, #111827 100%);
+            background-size: 48px 48px, 48px 48px, auto, auto, auto;
         }
 
         .panel {
             background: rgba(15, 23, 42, 0.78);
             border: 1px solid rgba(148, 163, 184, 0.18);
             backdrop-filter: blur(12px);
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.20);
+        }
+
+        .signal-card {
+            background: linear-gradient(145deg, rgba(15, 23, 42, 0.86), rgba(2, 6, 23, 0.74));
+            border: 1px solid rgba(148, 163, 184, 0.18);
         }
 
         .progress-fill {
@@ -115,6 +125,20 @@
                     Hybrid search, deep re-ranking, predictive engagement, and recruiter-ready
                     explanations in one streaming shortlist workflow.
                 </p>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6">
+                    <div class="signal-card rounded-xl px-4 py-3">
+                        <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-1">Agent flow</div>
+                        <div class="text-sm font-bold text-slate-100">Parse -> Match -> Engage</div>
+                    </div>
+                    <div class="signal-card rounded-xl px-4 py-3">
+                        <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-1">Decision layer</div>
+                        <div class="text-sm font-bold text-emerald-300">Action-ready briefs</div>
+                    </div>
+                    <div class="signal-card rounded-xl px-4 py-3">
+                        <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-1">Candidate source</div>
+                        <div class="text-sm font-bold text-sky-300">Local / Upload / API</div>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -921,6 +945,40 @@
             `;
         }
 
+        function renderDecisionBrief(candidate) {
+            const brief = candidate.decision_brief;
+            if (!brief) return '';
+            const evidence = safeList(brief.evidence).slice(0, 4).map(item => `
+                <span class="px-2 py-1 rounded-full bg-slate-900/80 border border-slate-700 text-[10px] font-semibold text-slate-300">${safeText(item)}</span>
+            `).join('');
+
+            return `
+                <div class="mt-5 signal-card rounded-2xl p-4 border-emerald-500/25">
+                    <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div>
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-emerald-300/80 mb-2">Decision brief</div>
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <span class="px-3 py-1.5 rounded-full bg-emerald-500/12 border border-emerald-500/30 text-sm font-extrabold text-emerald-300">${safeText(brief.verdict)}</span>
+                                <span class="text-sm font-semibold text-slate-100">${safeText(brief.next_action)}</span>
+                            </div>
+                            <p class="text-sm text-slate-300 leading-relaxed break-words">${safeText(brief.outreach_angle)}</p>
+                        </div>
+                        <div class="lg:w-[38%] grid gap-2 text-xs">
+                            <div class="rounded-xl bg-slate-950/60 border border-slate-800 px-3 py-2">
+                                <span class="text-slate-500 uppercase tracking-[0.14em] text-[10px] block mb-1">Risk</span>
+                                <span class="text-slate-200 break-words">${safeText(brief.risk_to_watch)}</span>
+                            </div>
+                            <div class="rounded-xl bg-slate-950/60 border border-slate-800 px-3 py-2">
+                                <span class="text-slate-500 uppercase tracking-[0.14em] text-[10px] block mb-1">Negotiation</span>
+                                <span class="text-slate-200 break-words">${safeText(brief.negotiation_note)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mt-4">${evidence}</div>
+                </div>
+            `;
+        }
+
         function displaySortKey(candidate) {
             const match = candidate.match_result || {};
             const interest = candidate.interest_result || {};
@@ -984,6 +1042,7 @@
                             <div class="mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-500 text-center">Final Score (Combined)</div>
                         </div>
                     </div>
+                    ${renderDecisionBrief(candidate)}
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 text-sm">
                         <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">

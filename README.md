@@ -12,6 +12,7 @@ A FastAPI-based recruitment intelligence demo that parses job descriptions, retr
 - Hybrid retrieval with BM25, dense embeddings, FAISS, and reciprocal rank fusion
 - Cross-encoder re-ranking
 - Technical match, engagement, flight-risk, and final ranking scores
+- Recruiter Decision Briefs with verdict, next action, risk, and negotiation note
 - SSE streaming for progressive frontend results
 - Structured stage-specific API errors
 - Deterministic fallback behavior when optional LLM generation is unavailable
@@ -34,6 +35,7 @@ flowchart LR
     Match --> Final[Combined Ranked Shortlist]
     Interest --> Final
     Conversation --> Final
+    Final --> Brief[Recruiter Decision Brief]
 ```
 
 ## Scoring Logic
@@ -45,6 +47,11 @@ The recruiter sees both the separate dimensions required by the problem statemen
 - `Flight Risk`: tracked separately using tenure and career-movement signals so it does not pollute the interest score.
 - `Final Score`: `0.50 * Match Score + 0.25 * Interest Score + 0.25 * Cross-Encoder Score`.
 - `Simulated Engagement`: generates recruiter/candidate transcript turns for consent, interest, salary, and availability, then exposes structured interest signals.
+- `Decision Brief`: converts scoring evidence into a recruiter verdict, next action, outreach angle, risk to watch, and negotiation note.
+
+## Innovation Layer
+
+The project adds a lightweight recruiter decision layer on top of classic matching. Instead of only returning ranked candidates, every shortlisted profile includes a concise `decision_brief` that tells the recruiter what to do next and why. This keeps the system practical for the hackathon scope while making the output feel closer to a real talent-intelligence copilot.
 
 ## Sample Use Case
 
@@ -66,6 +73,12 @@ Output highlights:
   "final_score": 82.4,
   "missing_skills": ["Vector Search"],
   "recommendation": "Review manually before outreach due to missing critical skills.",
+  "decision_brief": {
+    "verdict": "Manual review",
+    "next_action": "Validate the missing mandatory skill evidence before outreach.",
+    "outreach_angle": "Lead with Python and connect it directly to the Machine Learning Engineer scope.",
+    "risk_to_watch": "Mandatory gap: Vector Search."
+  },
   "engagement_conversation": {
     "signals": {
       "consent_given": true,

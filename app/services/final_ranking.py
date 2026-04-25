@@ -15,6 +15,7 @@ from app.services.match_scoring import rank_candidates_by_match
 from app.services.pipeline_errors import PipelineStageError
 from app.services.ranking_consistency import (
     build_availability_insight,
+    build_decision_brief,
     build_experience_match_reason,
     build_final_explanation,
     build_interest_insight,
@@ -196,6 +197,13 @@ class FinalRankingService:
                 availability_insight=build_availability_insight(interest_result),
                 recruiter_outreach=recruiter_outreach,
                 engagement_conversation=engagement_conversation,
+                decision_brief=build_decision_brief(
+                    final_score,
+                    match_result,
+                    interest_result,
+                    parsed_jd,
+                    candidate,
+                ),
             )
             ranking = await self.response_validation_service.validate_candidate_ranking(
                 ranking,

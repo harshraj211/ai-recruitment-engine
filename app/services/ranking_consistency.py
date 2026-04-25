@@ -1,4 +1,4 @@
-from app.schemas.final_ranking import FinalCandidateRanking
+from app.schemas.final_ranking import FinalCandidateRanking, RecruiterDecisionBrief
 
 DEFAULT_MATCH_WEIGHT = 0.50
 DEFAULT_INTEREST_WEIGHT = 0.25
@@ -74,6 +74,70 @@ def build_recommendation(final_score: float, match_result, interest_result) -> s
     if final_score >= 60:
         return "Keep warm for secondary review."
     return "Do not prioritize for this requisition."
+
+
+def build_decision_brief(
+    final_score: float,
+    match_result,
+    interest_result,
+    parsed_jd,
+    candidate,
+) -> RecruiterDecisionBrief:
+    missing_core = match_result.missing_core_skills
+    matched_core = match_result.matched_core_skills or match_result.matched_skills
+    role_title = parsed_jd.role_title or "the target role"
+
+    if missing_core:
+        verdict = "Manual review"
+        next_action = "Validate the missing mandatory skill evidence before outreach."
+        risk_to_watch = f"Mandatory gap: {missing_core[0]}."
+    elif final_score >= 82 and interest_result.interest_score >= 75:
+        verdict = "Fast-track"
+        next_action = "Prioritize outreach and move to recruiter screen."
+        risk_to_watch = "Keep the first touch specific so the candidate sees role relevance quickly."
+    elif final_score >= 70:
+        verdict = "Recruiter screen"
+        next_action = "Advance after confirming interest and availability."
+        risk_to_watch = "Interest or re-ranker signal is solid but not decisive."
+    else:
+        verdict = "Keep warm"
+        next_action = "Save for a secondary pass or a broader requisition."
+        risk_to_watch = "Overall fit is below the current shortlist threshold."
+
+    strongest_skill = matched_core[0] if matched_core else candidate.role_title
+    outreach_angle = (
+        f"Lead with {strongest_skill} and connect it directly to the {role_title} scope."
+    )
+
+    if interest_result.salary_alignment == "above_range":
+        negotiation_note = "Candidate expectation is above budget; confirm flexibility early."
+    elif interest_result.salary_alignment == "below_range":
+        negotiation_note = "Compensation appears favorable; focus on scope and growth."
+    elif interest_result.salary_alignment == "aligned":
+        negotiation_note = "Salary expectation is inside range; avoid delaying on compensation."
+    else:
+        negotiation_note = "Salary range is unknown; ask early to avoid late-stage mismatch."
+
+    evidence = [
+        f"Match {match_result.match_score:.1f}%",
+        f"Interest {interest_result.interest_score:.1f}%",
+        f"Availability {interest_result.availability_days} days"
+        if interest_result.availability_days is not None
+        else "Availability unknown",
+    ]
+    if matched_core:
+        evidence.append(f"Core evidence: {', '.join(matched_core[:3])}")
+    if missing_core:
+        evidence.append(f"Missing mandatory: {', '.join(missing_core[:2])}")
+
+    return RecruiterDecisionBrief(
+        verdict=verdict,
+        next_action=next_action,
+        outreach_angle=outreach_angle,
+        risk_to_watch=risk_to_watch,
+        negotiation_note=negotiation_note,
+        evidence=evidence,
+    )
 
 
 def candidate_ranking_sort_key(item: FinalCandidateRanking) -> tuple:

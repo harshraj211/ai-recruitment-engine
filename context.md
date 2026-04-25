@@ -32,6 +32,7 @@ Pipeline Orchestrator
   -> Weighted skill / experience / role scoring
   -> Predictive engagement scoring
   -> Simulated outreach conversation
+  -> Recruiter decision brief
   -> Response validation and auto-correction
   -> LLM summary + outreach with PII masking
   -> Final ranking + pagination
@@ -78,6 +79,7 @@ Data / Models
   - recruiter/candidate transcript turns for consent, interest, salary, and availability
   - structured signals for consent, interest level, sentiment, confidence, salary alignment, and availability
   - JSON conversation logs under `data/conversations/`
+- Recruiter Decision Briefs now convert scoring evidence into a verdict, next action, outreach angle, risk to watch, and negotiation note.
 - Outreach prompts reference only the target JD role title, not the candidate's current role title.
 - Summary and outreach prompts include verified matched skills, verified missing skills, role, and salary alignment, plus contradiction guards against hallucinated gaps.
 - PII is masked before LLM prompts.
@@ -106,6 +108,7 @@ Data / Models
   - `missing_skills`
   - `recommendation`
   - `engagement_conversation`
+  - `decision_brief`
 - Pagination is supported.
 - Frontend now streams progress and candidate cards progressively via SSE.
 - Frontend score labels now distinguish `Final Score (Combined)`, `Technical Match Score`, `Interest Score`, and `Re-ranker Score`.
@@ -119,6 +122,7 @@ Data / Models
   - **Upload JSON**: accepts a browser JSON file upload and activates validated records.
   - **Simulated External API**: switches to the mock external candidate endpoint.
 - Candidate cards now expose the simulated engagement transcript inside the explanation panel so judges can see how interest was assessed.
+- Candidate cards now include a decision brief panel above the score breakdown for a more polished recruiter-command-center feel.
 
 ## Key Services
 

@@ -6,6 +6,15 @@ from app.schemas.match_scoring import CandidateMatchResult
 from app.schemas.outreach import RecruiterOutreach
 
 
+class RecruiterDecisionBrief(BaseModel):
+    verdict: str
+    next_action: str
+    outreach_angle: str
+    risk_to_watch: str
+    negotiation_note: str
+    evidence: list[str] = Field(default_factory=list)
+
+
 class FinalCandidateRanking(BaseModel):
     candidate_id: str
     full_name: str
@@ -31,6 +40,7 @@ class FinalCandidateRanking(BaseModel):
     availability_insight: str = ""
     recruiter_outreach: RecruiterOutreach | None = None
     engagement_conversation: CandidateConversation | None = None
+    decision_brief: RecruiterDecisionBrief | None = None
 
 
 class FinalRankingRun(BaseModel):

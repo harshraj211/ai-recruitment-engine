@@ -138,6 +138,8 @@ def test_final_ranking_combines_match_interest_and_cross_encoder() -> None:
     assert rankings[0].cross_encoder_score >= rankings[1].cross_encoder_score
     assert rankings[0].flight_risk_score == rankings[0].interest_result.flight_risk_score
     assert rankings[0].recruiter_outreach is not None
+    assert rankings[0].decision_brief is not None
+    assert rankings[0].decision_brief.verdict in {"Fast-track", "Recruiter screen", "Manual review"}
 
 
 def test_final_ranking_results_include_flat_and_nested_outputs() -> None:
