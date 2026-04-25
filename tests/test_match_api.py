@@ -7,6 +7,7 @@ from app.schemas.interest_scoring import CandidateInterestResult, InterestScoreB
 from app.schemas.job_description import ParsedJobDescription
 from app.schemas.match_scoring import CandidateMatchResult
 from app.schemas.pipeline import MatchPipelineResult
+from app.services.pipeline_errors import PipelineStageError
 
 
 class StubPipelineService:
@@ -177,4 +178,40 @@ def test_stream_match_endpoint_accepts_trailing_slash() -> None:
 
     assert response.status_code == 200
     assert "text/event-stream" in response.headers["content-type"]
+    app.dependency_overrides.clear()
+
+
+class FailingPipelineService:
+    async def run_async(self, *args, **kwargs):
+        raise PipelineStageError(
+            "retrieval",
+            "Hybrid retrieval failed.",
+            code="retrieval_failed",
+            status_code=503,
+        )
+
+
+def test_match_endpoint_returns_structured_pipeline_errors() -> None:
+    app.dependency_overrides[get_match_pipeline_service] = lambda: FailingPipelineService()
+    client = TestClient(app)
+
+    response = client.post(
+        "/api/v1/match",
+        json={
+            "job_description": (
+                "We are hiring a Senior Machine Learning Engineer for our talent intelligence "
+                "platform. You should have 4+ years of experience building production APIs and "
+                "ML services. Required skills: Python, FastAPI, PyTorch, Docker, AWS, MLflow, "
+                "and vector search."
+            ),
+            "top_k_search": 5,
+            "top_k_final": 3,
+        },
+    )
+
+    assert response.status_code == 503
+    payload = response.json()
+    assert payload["status"] == "error"
+    assert payload["error"]["stage"] == "retrieval"
+    assert payload["error"]["code"] == "retrieval_failed"
     app.dependency_overrides.clear()

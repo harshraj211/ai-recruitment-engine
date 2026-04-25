@@ -20,8 +20,9 @@ def ensure_runtime_dirs() -> None:
 
 
 def configure_logging() -> None:
+    settings = get_settings()
     logging.basicConfig(
-        level=logging.INFO,
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
     )
 

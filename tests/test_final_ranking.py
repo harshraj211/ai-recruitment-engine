@@ -136,7 +136,7 @@ def test_final_ranking_combines_match_interest_and_cross_encoder() -> None:
     assert rankings[0].candidate_id == "cand-002"
     assert rankings[0].final_score > rankings[1].final_score
     assert rankings[0].cross_encoder_score >= rankings[1].cross_encoder_score
-    assert rankings[0].flight_risk_score == 66.0
+    assert rankings[0].flight_risk_score == rankings[0].interest_result.flight_risk_score
     assert rankings[0].recruiter_outreach is not None
 
 

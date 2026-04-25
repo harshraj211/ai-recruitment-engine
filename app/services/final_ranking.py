@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import math
+import time
 from collections.abc import Awaitable, Callable
 
 from app.core.config import get_settings
@@ -10,14 +11,23 @@ from app.services.candidate_store import build_candidate_search_text, load_candi
 from app.services.conversation_service import RecruiterCommunicationService
 from app.services.cross_encoder_service import CrossEncoderService
 from app.services.interest_scoring import PredictiveEngagementService
-from app.services.match_scoring import apply_mandatory_skill_penalty, rank_candidates_by_match
+from app.services.match_scoring import rank_candidates_by_match
+from app.services.pipeline_errors import PipelineStageError
+from app.services.ranking_consistency import (
+    build_availability_insight,
+    build_experience_match_reason,
+    build_final_explanation,
+    build_interest_insight,
+    build_recommendation,
+    build_salary_alignment_reason,
+    build_skill_match_reason,
+    calculate_final_score,
+    candidate_ranking_sort_key,
+)
+from app.services.response_validation import ResponseValidationService
 from app.services.vector_store import CandidateVectorStore, build_job_search_text
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_MATCH_WEIGHT = 0.50
-DEFAULT_INTEREST_WEIGHT = 0.25
-DEFAULT_CROSS_ENCODER_WEIGHT = 0.25
 
 ProgressCallback = Callable[[dict], Awaitable[None]]
 
@@ -32,65 +42,6 @@ def min_max_normalize(values: list[float]) -> list[float]:
     return [(value - low) / (high - low) for value in values]
 
 
-def build_final_explanation(
-    final_score: float,
-    match_result,
-    interest_result,
-    cross_encoder_score: float | None,
-) -> str:
-    return (
-        f"Final Score {final_score:.1f}% combines Match {match_result.match_score:.1f}%, "
-        f"Interest {interest_result.interest_score:.1f}%, and "
-        f"Cross-Encoder {(cross_encoder_score or 0.0) * 100:.1f}%. "
-        f"{match_result.explanation} {interest_result.explanation}"
-    )
-
-
-def build_skill_match_reason(match_result) -> str:
-    details = "; ".join(match_result.skill_alignment_details[:4])
-    return (
-        f"Mandatory skill fit {match_result.core_skill_score * 100:.0f}%, "
-        f"nice-to-have fit {match_result.secondary_skill_score * 100:.0f}%. "
-        f"{details}"
-    )
-
-
-def build_experience_match_reason(match_result, candidate) -> str:
-    return (
-        f"Experience fit {match_result.experience_match_score * 100:.0f}% with "
-        f"{candidate.total_experience_years:.1f} years in {candidate.role_title}. "
-        f"Trajectory boost {match_result.trajectory_boost_score * 100:.1f}%."
-    )
-
-
-def build_interest_insight(interest_result) -> str:
-    return (
-        f"Flight risk {interest_result.flight_risk_score:.1f}% and predicted interest "
-        f"{interest_result.interest_score:.1f}%."
-    )
-
-
-def build_salary_alignment_reason(interest_result) -> str:
-    return f"Salary alignment is {interest_result.salary_alignment}."
-
-
-def build_availability_insight(interest_result) -> str:
-    availability = interest_result.availability_days
-    return f"Availability is {availability} days." if availability is not None else "Availability is unknown."
-
-
-def build_recommendation(final_score: float, match_result, interest_result) -> str:
-    if match_result.missing_core_skills:
-        return "Review manually before outreach due to missing critical skills."
-    if final_score >= 80 and interest_result.flight_risk_score >= 55:
-        return "Prioritize outreach this week."
-    if final_score >= 70:
-        return "Advance to recruiter screen."
-    if final_score >= 60:
-        return "Keep warm for secondary review."
-    return "Do not prioritize for this requisition."
-
-
 class FinalRankingService:
     def __init__(
         self,
@@ -99,6 +50,7 @@ class FinalRankingService:
         engagement_service: PredictiveEngagementService | None = None,
         communication_service: RecruiterCommunicationService | None = None,
         cross_encoder_service: CrossEncoderService | None = None,
+        response_validation_service: ResponseValidationService | None = None,
     ) -> None:
         settings = get_settings()
         self.settings = settings
@@ -108,6 +60,7 @@ class FinalRankingService:
         self.cross_encoder_service = cross_encoder_service or CrossEncoderService(
             settings.cross_encoder_model_name
         )
+        self.response_validation_service = response_validation_service or ResponseValidationService()
 
     async def _emit_progress(self, callback: ProgressCallback | None, payload: dict) -> None:
         if callback is not None:
@@ -152,34 +105,47 @@ class FinalRankingService:
         semaphore: asyncio.Semaphore,
     ) -> FinalCandidateRanking:
         async with semaphore:
+            started_at = time.perf_counter()
             interest_result = await asyncio.wait_for(
                 self.engagement_service.score_candidate_async(candidate, parsed_jd),
                 timeout=self.settings.candidate_scoring_timeout_seconds,
             )
-            summary, _, _ = await self.communication_service.generate_summary(
-                candidate,
-                parsed_jd,
-                match_result,
-                interest_result,
-            )
-            recruiter_outreach = None
-            if include_outreach:
-                recruiter_outreach = await self.communication_service.generate_outreach(
+            summary_task = asyncio.create_task(
+                self.communication_service.generate_summary(
                     candidate,
                     parsed_jd,
                     match_result,
                     interest_result,
                 )
-
-            cross_encoder_score = match_result.cross_encoder_score or 0.0
-            final_score = (
-                (DEFAULT_MATCH_WEIGHT * match_result.match_score)
-                + (DEFAULT_INTEREST_WEIGHT * interest_result.interest_score)
-                + (DEFAULT_CROSS_ENCODER_WEIGHT * (cross_encoder_score * 100.0))
             )
-            final_score = apply_mandatory_skill_penalty(final_score, match_result.core_skill_score)
+            recruiter_outreach_task = None
+            if include_outreach:
+                recruiter_outreach_task = asyncio.create_task(
+                    self.communication_service.generate_outreach(
+                        candidate,
+                        parsed_jd,
+                        match_result,
+                        interest_result,
+                    )
+                )
 
-            return FinalCandidateRanking(
+            recruiter_outreach = None
+            if recruiter_outreach_task is not None:
+                summary_payload, recruiter_outreach = await asyncio.gather(
+                    summary_task,
+                    recruiter_outreach_task,
+                )
+                summary, _, _ = summary_payload
+            else:
+                summary, _, _ = await summary_task
+
+            cross_encoder_percent = round((match_result.cross_encoder_score or 0.0) * 100.0, 2)
+            final_score = calculate_final_score(
+                match_result.match_score,
+                interest_result.interest_score,
+                cross_encoder_percent,
+            )
+            ranking = FinalCandidateRanking(
                 candidate_id=match_result.candidate_id,
                 full_name=match_result.full_name,
                 role_title=match_result.role_title,
@@ -187,20 +153,20 @@ class FinalRankingService:
                 match_score=match_result.match_score,
                 interest_score=interest_result.interest_score,
                 bm25_score=retrieval_result.bm25_score,
-                cross_encoder_score=round(cross_encoder_score * 100.0, 2),
+                cross_encoder_score=cross_encoder_percent,
                 flight_risk_score=interest_result.flight_risk_score,
                 final_score=round(final_score, 2),
                 rank=1,
                 match_result=match_result,
                 interest_result=interest_result,
                 summary=summary,
-                missing_skills=match_result.missing_core_skills or match_result.missing_skills,
+                missing_skills=match_result.missing_skills,
                 recommendation=build_recommendation(final_score, match_result, interest_result),
                 final_explanation=build_final_explanation(
                     final_score,
                     match_result,
                     interest_result,
-                    cross_encoder_score,
+                    cross_encoder_percent,
                 ),
                 skill_match_reason=build_skill_match_reason(match_result),
                 experience_match_reason=build_experience_match_reason(match_result, candidate),
@@ -209,6 +175,18 @@ class FinalRankingService:
                 availability_insight=build_availability_insight(interest_result),
                 recruiter_outreach=recruiter_outreach,
             )
+            ranking = await self.response_validation_service.validate_candidate_ranking(
+                ranking,
+                candidate=candidate,
+                parsed_jd=parsed_jd,
+            )
+            logger.debug(
+                "Candidate enrichment candidate=%s duration_ms=%.2f final_score=%.2f",
+                candidate.id,
+                (time.perf_counter() - started_at) * 1000.0,
+                ranking.final_score,
+            )
+            return ranking
 
     async def rank_candidates_async(
         self,
@@ -243,11 +221,36 @@ class FinalRankingService:
         include_outreach: bool = False,
         progress_callback: ProgressCallback | None = None,
     ) -> FinalRankingRun:
+        total_started_at = time.perf_counter()
         await self._emit_progress(
             progress_callback,
             {"event": "progress", "stage": "retrieval", "message": "Running hybrid retrieval."},
         )
-        retrieval_results = await self.vector_store.search_parsed_job_async(parsed_jd, top_k=top_k_search)
+        retrieval_started_at = time.perf_counter()
+        try:
+            retrieval_results = await asyncio.wait_for(
+                self.vector_store.search_parsed_job_async(parsed_jd, top_k=top_k_search),
+                timeout=self.settings.pipeline_stage_timeout_seconds,
+            )
+        except TimeoutError as exc:
+            raise PipelineStageError(
+                "retrieval",
+                "Hybrid retrieval timed out before candidates were returned.",
+                code="retrieval_timeout",
+                status_code=504,
+            ) from exc
+        except Exception as exc:
+            raise PipelineStageError(
+                "retrieval",
+                f"Hybrid retrieval failed: {exc}",
+                code="retrieval_failed",
+                status_code=503,
+            ) from exc
+        logger.info(
+            "Ranking retrieval completed in %.3fs with %s candidates",
+            time.perf_counter() - retrieval_started_at,
+            len(retrieval_results),
+        )
         if not retrieval_results:
             return FinalRankingRun(
                 rankings=[],
@@ -265,14 +268,35 @@ class FinalRankingService:
             if result.candidate_id in candidate_lookup
         ]
         retrieval_lookup = {result.candidate_id: result for result in retrieval_results}
+        if not candidates:
+            raise PipelineStageError(
+                "retrieval",
+                "Retrieved candidate ids could not be resolved against the local candidate store.",
+                code="candidate_lookup_failed",
+                status_code=500,
+            )
 
         await self._emit_progress(
             progress_callback,
             {"event": "progress", "stage": "rerank", "message": "Running cross-encoder re-ranking."},
         )
         rerank_candidates = candidates[: min(self.settings.top_k_rerank, len(candidates))]
-        cross_encoder_lookup = await self._score_cross_encoder(parsed_jd, rerank_candidates)
+        rerank_started_at = time.perf_counter()
+        try:
+            cross_encoder_lookup = await asyncio.wait_for(
+                self._score_cross_encoder(parsed_jd, rerank_candidates),
+                timeout=self.settings.pipeline_stage_timeout_seconds,
+            )
+        except TimeoutError as exc:
+            logger.warning("Cross-encoder re-ranking timed out: %s", exc)
+            cross_encoder_lookup = {candidate.id: 0.0 for candidate in rerank_candidates}
+        logger.info(
+            "Ranking re-rank completed in %.3fs for %s candidates",
+            time.perf_counter() - rerank_started_at,
+            len(rerank_candidates),
+        )
 
+        match_started_at = time.perf_counter()
         match_results = rank_candidates_by_match(
             parsed_jd,
             candidates,
@@ -282,12 +306,18 @@ class FinalRankingService:
             },
             cross_encoder_lookup=cross_encoder_lookup,
         )
+        logger.info(
+            "Ranking technical scoring completed in %.3fs for %s candidates",
+            time.perf_counter() - match_started_at,
+            len(match_results),
+        )
 
         await self._emit_progress(
             progress_callback,
             {"event": "progress", "stage": "engagement", "message": "Scoring engagement and summaries."},
         )
         semaphore = asyncio.Semaphore(4)
+        enrichment_started_at = time.perf_counter()
         tasks = [
             self._enrich_candidate(
                 candidate_lookup[match_result.candidate_id],
@@ -301,7 +331,11 @@ class FinalRankingService:
         ]
         ranked_results = []
         for task in asyncio.as_completed(tasks):
-            item = await task
+            try:
+                item = await task
+            except Exception as exc:
+                logger.exception("Candidate enrichment failed: %s", exc)
+                continue
             if item is None:
                 continue
             ranked_results.append(item)
@@ -312,16 +346,20 @@ class FinalRankingService:
                     "payload": item.model_dump(),
                 },
             )
-
-        ranked_results.sort(
-            key=lambda item: (
-                item.final_score,
-                item.cross_encoder_score or 0.0,
-                item.match_result.match_score,
-                item.interest_result.interest_score,
-            ),
-            reverse=True,
+        logger.info(
+            "Ranking enrichment completed in %.3fs with %s validated candidates",
+            time.perf_counter() - enrichment_started_at,
+            len(ranked_results),
         )
+        if not ranked_results:
+            raise PipelineStageError(
+                "enrichment",
+                "Candidate enrichment failed for every shortlisted candidate.",
+                code="enrichment_failed",
+                status_code=503,
+            )
+
+        ranked_results.sort(key=candidate_ranking_sort_key)
 
         for index, item in enumerate(ranked_results, start=1):
             item.rank = index
@@ -330,7 +368,7 @@ class FinalRankingService:
         start_index = (page - 1) * page_size
         page_rankings = ranked_results[start_index : start_index + page_size]
 
-        return FinalRankingRun(
+        run = FinalRankingRun(
             rankings=page_rankings,
             total_candidates_retrieved=len(retrieval_results),
             total_candidates_ranked=len(match_results),
@@ -338,6 +376,13 @@ class FinalRankingService:
             page_size=page_size,
             total_pages=total_pages,
         )
+        logger.info(
+            "Ranking pipeline completed in %.3fs returning %s candidates on page %s",
+            time.perf_counter() - total_started_at,
+            len(page_rankings),
+            page,
+        )
+        return self.response_validation_service.validate_ranking_run(run)
 
     def rank_candidates(
         self,

@@ -2,10 +2,12 @@ import asyncio
 import json
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse
 from fastapi.responses import StreamingResponse
 
-from app.schemas.api import MatchRequest, MatchResponse
+from app.schemas.api import ErrorResponse, MatchRequest, MatchResponse
+from app.services.pipeline_errors import PipelineStageError
 from app.services.pipeline_service import MatchPipelineService
 
 logger = logging.getLogger(__name__)
@@ -20,8 +22,34 @@ def format_sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=True)}\n\n"
 
 
-@router.post("/match", response_model=MatchResponse)
-@router.post("/match/", response_model=MatchResponse, include_in_schema=False)
+def build_error_payload(
+    *,
+    stage: str,
+    code: str,
+    message: str,
+) -> dict:
+    payload = ErrorResponse(
+        error={
+            "code": code,
+            "stage": stage,
+            "message": message,
+        }
+    ).model_dump()
+    payload["detail"] = message
+    return payload
+
+
+@router.post(
+    "/match",
+    response_model=MatchResponse,
+    responses={500: {"model": ErrorResponse}, 503: {"model": ErrorResponse}, 504: {"model": ErrorResponse}},
+)
+@router.post(
+    "/match/",
+    response_model=MatchResponse,
+    include_in_schema=False,
+    responses={500: {"model": ErrorResponse}, 503: {"model": ErrorResponse}, 504: {"model": ErrorResponse}},
+)
 async def match_candidates(
     payload: MatchRequest,
     pipeline_service: MatchPipelineService = Depends(get_match_pipeline_service),
@@ -45,9 +73,26 @@ async def match_candidates(
                 page_size=payload.page_size,
                 include_outreach=payload.include_outreach,
             )
-    except RuntimeError as exc:
-        logger.exception("Match pipeline failed")
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+    except PipelineStageError as exc:
+        logger.exception("Match pipeline failed at stage=%s", exc.stage)
+        return JSONResponse(
+            status_code=exc.status_code,
+            content=build_error_payload(
+                stage=exc.stage,
+                code=exc.code,
+                message=exc.message,
+            ),
+        )
+    except Exception as exc:
+        logger.exception("Match pipeline failed unexpectedly")
+        return JSONResponse(
+            status_code=500,
+            content=build_error_payload(
+                stage="match",
+                code="match_failed",
+                message=str(exc) or "The match pipeline failed unexpectedly.",
+            ),
+        )
 
     return MatchResponse(
         parsed_job_description=result.parsed_job_description,
@@ -100,7 +145,19 @@ async def stream_match_candidates(
             )
         except Exception as exc:
             logger.exception("Streaming match pipeline failed")
-            await queue.put({"event": "error", "payload": {"detail": str(exc)}})
+            if isinstance(exc, PipelineStageError):
+                error_payload = build_error_payload(
+                    stage=exc.stage,
+                    code=exc.code,
+                    message=exc.message,
+                )
+            else:
+                error_payload = build_error_payload(
+                    stage="match",
+                    code="match_failed",
+                    message=str(exc) or "The streaming match pipeline failed unexpectedly.",
+                )
+            await queue.put({"event": "error", "payload": error_payload})
         finally:
             await queue.put(None)
 

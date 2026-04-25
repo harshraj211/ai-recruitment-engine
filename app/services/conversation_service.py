@@ -48,6 +48,48 @@ def _summary_mentions_contradictory_missing_skill(summary: str, matched_skills: 
     return False
 
 
+def _extract_gap_mentions(text: str, skill_pool: list[str]) -> list[str]:
+    normalized_text = _normalize_text(text)
+    mentions: list[str] = []
+    for skill in skill_pool:
+        normalized_skill = normalize_skill(skill)
+        if not normalized_skill:
+            continue
+        if any(
+            phrase in normalized_text
+            for phrase in (
+                f"missing {normalized_skill}",
+                f"lacks {normalized_skill}",
+                f"without {normalized_skill}",
+                f"gap in {normalized_skill}",
+                f"lacking {normalized_skill}",
+                f"needs {normalized_skill}",
+            )
+        ):
+            mentions.append(skill)
+    return mentions
+
+
+def _extract_gap_phrases(text: str) -> list[str]:
+    pattern = re.compile(
+        r"\b(?:missing|lacks|without|gap in|lacking|needs)\s+([a-z0-9+]+(?:\s+[a-z0-9+]+){0,2})"
+    )
+    return [match.group(1).strip() for match in pattern.finditer(_normalize_text(text))]
+
+
+def _salary_mentions_contradiction(text: str, salary_alignment: str) -> bool:
+    normalized_text = _normalize_text(text)
+    contradiction_markers = {
+        "above_range": ("salary aligned", "within budget", "in budget"),
+        "aligned": ("above budget", "over budget", "salary mismatch", "outside budget"),
+        "below_range": ("above budget", "over budget", "salary mismatch", "outside budget"),
+    }
+    return any(
+        marker in normalized_text
+        for marker in contradiction_markers.get(salary_alignment, ())
+    )
+
+
 def _outreach_uses_wrong_role_title(
     message: str,
     candidate_role_title: str,
@@ -66,6 +108,76 @@ def _outreach_uses_wrong_role_title(
         normalized_candidate_role in normalized_message
         and normalized_target_role not in normalized_message
     )
+
+
+def summary_has_data_contradiction(
+    summary: str,
+    *,
+    match_result: CandidateMatchResult,
+    interest_result: CandidateInterestResult,
+    parsed_jd: ParsedJobDescription,
+) -> bool:
+    skill_pool = [
+        *parsed_jd.mandatory_skills,
+        *parsed_jd.nice_to_have_skills,
+        *match_result.matched_skills,
+        *match_result.missing_skills,
+    ]
+    missing_skill_keys = {normalize_skill(skill) for skill in match_result.missing_skills}
+
+    if _summary_mentions_contradictory_missing_skill(summary, match_result.matched_skills):
+        return True
+    if _salary_mentions_contradiction(summary, interest_result.salary_alignment):
+        return True
+
+    for skill in _extract_gap_mentions(summary, skill_pool):
+        if normalize_skill(skill) not in missing_skill_keys:
+            return True
+    for phrase in _extract_gap_phrases(summary):
+        normalized_phrase = normalize_skill(phrase)
+        if normalized_phrase and not any(
+            normalized_phrase == missing_skill
+            or normalized_phrase in missing_skill
+            or missing_skill in normalized_phrase
+            for missing_skill in missing_skill_keys
+        ):
+            return True
+    return False
+
+
+def outreach_has_data_contradiction(
+    message: str,
+    *,
+    match_result: CandidateMatchResult,
+    interest_result: CandidateInterestResult,
+    parsed_jd: ParsedJobDescription,
+    candidate_role_title: str,
+) -> bool:
+    if _outreach_uses_wrong_role_title(message, candidate_role_title, parsed_jd.role_title):
+        return True
+    if _salary_mentions_contradiction(message, interest_result.salary_alignment):
+        return True
+
+    skill_pool = [
+        *parsed_jd.mandatory_skills,
+        *parsed_jd.nice_to_have_skills,
+        *match_result.matched_skills,
+        *match_result.missing_skills,
+    ]
+    missing_skill_keys = {normalize_skill(skill) for skill in match_result.missing_skills}
+    for skill in _extract_gap_mentions(message, skill_pool):
+        if normalize_skill(skill) not in missing_skill_keys:
+            return True
+    for phrase in _extract_gap_phrases(message):
+        normalized_phrase = normalize_skill(phrase)
+        if normalized_phrase and not any(
+            normalized_phrase == missing_skill
+            or normalized_phrase in missing_skill
+            or missing_skill in normalized_phrase
+            for missing_skill in missing_skill_keys
+        ):
+            return True
+    return False
 
 
 def build_recruiter_outreach_prompt(
@@ -92,6 +204,8 @@ def build_recruiter_outreach_prompt(
             "availability_days": interest_result.availability_days,
             "matched_core_skills": match_result.matched_core_skills,
             "matched_skills": match_result.matched_skills,
+            "missing_core_skills": match_result.missing_core_skills,
+            "missing_skills": match_result.missing_skills,
         },
         "rules": [
             "Do not include placeholders or markdown.",
@@ -100,6 +214,7 @@ def build_recruiter_outreach_prompt(
             "Do not mention internal scores directly.",
             "Reference only role.target_role_title when describing the opportunity.",
             "Do not describe the opportunity using the candidate's current role title.",
+            "Do NOT invent missing skills or contradict provided data.",
         ],
     }
 
@@ -136,6 +251,8 @@ def build_summary_prompt(
             "Do not mention protected traits or PII.",
             f"Verified matched skills: {_format_skill_list(match_result.matched_skills)}.",
             f"Do NOT invent missing skills. Only use this list when mentioning gaps: {_format_skill_list(match_result.missing_skills)}.",
+            f"Role: {parsed_jd.role_title or 'unspecified'}; salary alignment: {interest_result.salary_alignment}.",
+            "Do NOT invent missing skills or contradict provided data.",
         ],
     }
 
@@ -182,12 +299,13 @@ class AsyncGroqCommunicationLLM(BaseCommunicationLLM):
             {
                 "role": "system",
                 "content": (
-                    "You are a recruiting copilot. Respond with plain text only. "
-                    "Keep responses concise, grounded in the provided structured data, "
-                    "and avoid protected-class or demographic inferences."
-                ),
-            },
-            {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
+                "You are a recruiting copilot. Respond with plain text only. "
+                "Keep responses concise, grounded in the provided structured data, "
+                "and avoid protected-class or demographic inferences. "
+                "Do not invent skills, salary claims, or role details that are not present in the structured payload."
+            ),
+        },
+        {"role": "user", "content": json.dumps(prompt, ensure_ascii=True)},
         ]
 
         last_error: Exception | None = None
@@ -267,9 +385,15 @@ class RecruiterCommunicationService:
         prompt = build_recruiter_outreach_prompt(candidate, parsed_jd, match_result, interest_result)
         try:
             message = await self.llm.generate_text(prompt, max_tokens=180)
-            if _outreach_uses_wrong_role_title(message, candidate.role_title, parsed_jd.role_title):
+            if outreach_has_data_contradiction(
+                message,
+                match_result=match_result,
+                interest_result=interest_result,
+                parsed_jd=parsed_jd,
+                candidate_role_title=candidate.role_title,
+            ):
                 raise RuntimeError(
-                    "Generated outreach referenced the candidate's current role title instead of the target role."
+                    "Generated outreach contradicted the verified role, salary, or skill data."
                 )
             return RecruiterOutreach(
                 message=message,
@@ -296,12 +420,14 @@ class RecruiterCommunicationService:
         prompt = build_summary_prompt(candidate, parsed_jd, match_result, interest_result)
         try:
             summary = await self.llm.generate_text(prompt, max_tokens=90)
-            if _summary_mentions_contradictory_missing_skill(
+            if summary_has_data_contradiction(
                 summary,
-                match_result.matched_skills,
+                match_result=match_result,
+                interest_result=interest_result,
+                parsed_jd=parsed_jd,
             ):
                 raise RuntimeError(
-                    "Generated summary contradicted the verified matched skill list."
+                    "Generated summary contradicted the verified role, salary, or skill data."
                 )
             return summary, self.llm.provider, None
         except Exception as exc:
@@ -317,4 +443,6 @@ __all__ = [
     "build_recruiter_outreach_prompt",
     "build_summary_prompt",
     "calculate_salary_alignment",
+    "outreach_has_data_contradiction",
+    "summary_has_data_contradiction",
 ]

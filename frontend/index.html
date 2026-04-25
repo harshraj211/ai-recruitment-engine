@@ -57,6 +57,26 @@
             animation: card-in 0.4s ease both;
         }
 
+        .skeleton {
+            background: linear-gradient(
+                90deg,
+                rgba(30, 41, 59, 0.72) 0%,
+                rgba(51, 65, 85, 0.95) 50%,
+                rgba(30, 41, 59, 0.72) 100%
+            );
+            background-size: 200% 100%;
+            animation: shimmer 1.4s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
         @keyframes card-in {
             from {
                 opacity: 0;
@@ -161,6 +181,13 @@
             </div>
         </section>
 
+        <section id="demo-section" class="hidden mb-8">
+            <div class="panel rounded-2xl p-5 border border-amberaccent/35">
+                <p class="text-sm font-semibold text-amber-300">Demo fallback active</p>
+                <p id="demo-message" class="text-sm text-slate-300 mt-1"></p>
+            </div>
+        </section>
+
         <section id="jd-summary-section" class="hidden mb-8">
             <div class="panel rounded-2xl p-6">
                 <div class="flex items-center justify-between gap-3 mb-4">
@@ -187,6 +214,159 @@
 
     <script>
         const STREAM_URL = '/api/v1/match/stream';
+        const DEFAULT_DEMO_JD = 'We are hiring a Senior Machine Learning Engineer for a talent intelligence platform. Must have Python, FastAPI, PyTorch, Docker, AWS, MLflow, and vector search. Nice to have RAG. Salary budget is $50,000 to $65,000 and this role is remote.';
+        const DEMO_FALLBACK_RESPONSE = {
+            parsed_job_description: {
+                raw_text: DEFAULT_DEMO_JD,
+                role_title: 'Machine Learning Engineer',
+                seniority: 'senior',
+                min_experience_years: 4,
+                skills: ['Python', 'FastAPI', 'PyTorch', 'Docker', 'AWS', 'MLflow', 'Vector Search', 'RAG'],
+                mandatory_skills: ['Python', 'FastAPI', 'PyTorch', 'Docker', 'AWS', 'MLflow', 'Vector Search'],
+                nice_to_have_skills: ['RAG'],
+                domain_knowledge: ['Search'],
+                salary_range_usd: [50000, 65000],
+                work_mode: 'remote',
+            },
+            rankings: [
+                {
+                    candidate_id: 'cand-002',
+                    full_name: 'Rohan Mehta',
+                    candidate_name: 'Rohan Mehta',
+                    role_title: 'Machine Learning Engineer',
+                    final_score: 82.4,
+                    match_score: 84.9,
+                    interest_score: 78.6,
+                    bm25_score: 0.91,
+                    cross_encoder_score: 79.0,
+                    flight_risk_score: 63.0,
+                    rank: 1,
+                    summary: 'Strong fit on Python, FastAPI, PyTorch, and MLflow, with Vector Search as the primary gap.',
+                    missing_skills: ['Vector Search'],
+                    recommendation: 'Review manually before outreach due to missing critical skills.',
+                    final_explanation: 'Final Score 82.4% combines Technical Match 84.9%, Interest 78.6%, and Re-ranker 79.0%.',
+                    skill_match_reason: 'Weighted skill coverage 87.5% with strong Python, FastAPI, PyTorch, Docker, AWS, and MLflow evidence.',
+                    experience_match_reason: 'Experience fit is strong at 5.0 years against a 4-year requirement.',
+                    interest_insight: 'Interest Score 78.6% reflects aligned salary, 21-day availability, and strong engagement probability.',
+                    salary_alignment_reason: 'Salary alignment is aligned.',
+                    availability_insight: 'Availability is 21 days.',
+                    recruiter_outreach: {
+                        message: 'Hi, I am reaching out about a Machine Learning Engineer opportunity because your work in Python, FastAPI, and PyTorch looks highly relevant. If the role scope feels timely, I would love to share details.',
+                        provider: 'deterministic',
+                    },
+                    match_result: {
+                        candidate_id: 'cand-002',
+                        full_name: 'Rohan Mehta',
+                        role_title: 'Machine Learning Engineer',
+                        total_experience_years: 5.0,
+                        match_score: 84.9,
+                        skill_match_score: 0.875,
+                        core_skill_score: 0.8571,
+                        secondary_skill_score: 1.0,
+                        experience_match_score: 1.0,
+                        role_alignment_score: 1.0,
+                        trajectory_boost_score: 0.03,
+                        cross_encoder_score: 0.79,
+                        matched_skills: ['Python', 'FastAPI', 'PyTorch', 'Docker', 'AWS', 'MLflow'],
+                        missing_skills: ['Vector Search'],
+                        matched_core_skills: ['Python', 'FastAPI', 'PyTorch', 'Docker', 'AWS', 'MLflow'],
+                        missing_core_skills: ['Vector Search'],
+                        matched_secondary_skills: ['RAG'],
+                        missing_secondary_skills: [],
+                        skill_alignment_details: ['Python: exact (1.00)', 'FastAPI: exact (1.00)', 'PyTorch: exact (1.00)'],
+                        explanation: 'Weighted skill coverage 87.5% with Vector Search as the only critical gap.',
+                    },
+                    interest_result: {
+                        candidate_id: 'cand-002',
+                        full_name: 'Rohan Mehta',
+                        role_title: 'Machine Learning Engineer',
+                        interest_score: 78.6,
+                        flight_risk_score: 63.0,
+                        salary_alignment: 'aligned',
+                        availability_days: 21,
+                        explanation: 'Interest Score uses salary alignment, availability, and engagement probability only.',
+                        breakdown: {
+                            tenure_score: 0.78,
+                            salary_alignment_score: 0.9,
+                            availability_score: 0.85,
+                            stagnation_score: 0.38,
+                            promotion_likelihood_score: 0.28,
+                            role_relevance_score: 1.0,
+                            engagement_probability_score: 0.95,
+                        },
+                    },
+                },
+                {
+                    candidate_id: 'cand-015',
+                    full_name: 'Sneha Patel',
+                    candidate_name: 'Sneha Patel',
+                    role_title: 'Computer Vision Engineer',
+                    final_score: 68.7,
+                    match_score: 67.0,
+                    interest_score: 74.2,
+                    bm25_score: 0.66,
+                    cross_encoder_score: 66.0,
+                    flight_risk_score: 59.0,
+                    rank: 2,
+                    summary: 'Strong PyTorch and backend experience, but AWS and Vector Search remain the biggest hiring gaps.',
+                    missing_skills: ['AWS', 'Vector Search'],
+                    recommendation: 'Review manually before outreach due to missing critical skills.',
+                    final_explanation: 'Final Score 68.7% combines Technical Match 67.0%, Interest 74.2%, and Re-ranker 66.0%.',
+                    skill_match_reason: 'Weighted skill coverage 71.4% with strong Python, FastAPI, and PyTorch evidence.',
+                    experience_match_reason: 'Experience fit is solid at 5.0 years.',
+                    interest_insight: 'Interest Score 74.2% reflects aligned salary, 30-day availability, and good engagement probability.',
+                    salary_alignment_reason: 'Salary alignment is aligned.',
+                    availability_insight: 'Availability is 30 days.',
+                    match_result: {
+                        candidate_id: 'cand-015',
+                        full_name: 'Sneha Patel',
+                        role_title: 'Computer Vision Engineer',
+                        total_experience_years: 5.0,
+                        match_score: 67.0,
+                        skill_match_score: 0.7143,
+                        core_skill_score: 0.7143,
+                        secondary_skill_score: 1.0,
+                        experience_match_score: 1.0,
+                        role_alignment_score: 0.72,
+                        trajectory_boost_score: 0.02,
+                        cross_encoder_score: 0.66,
+                        matched_skills: ['Python', 'FastAPI', 'PyTorch', 'Docker', 'MLflow'],
+                        missing_skills: ['AWS', 'Vector Search'],
+                        matched_core_skills: ['Python', 'FastAPI', 'PyTorch', 'Docker', 'MLflow'],
+                        missing_core_skills: ['AWS', 'Vector Search'],
+                        matched_secondary_skills: ['RAG'],
+                        missing_secondary_skills: [],
+                        skill_alignment_details: ['Python: exact (1.00)', 'FastAPI: exact (1.00)', 'PyTorch: exact (1.00)'],
+                        explanation: 'Weighted skill coverage 71.4% with AWS and Vector Search missing.',
+                    },
+                    interest_result: {
+                        candidate_id: 'cand-015',
+                        full_name: 'Sneha Patel',
+                        role_title: 'Computer Vision Engineer',
+                        interest_score: 74.2,
+                        flight_risk_score: 59.0,
+                        salary_alignment: 'aligned',
+                        availability_days: 30,
+                        explanation: 'Interest Score uses salary alignment, availability, and engagement probability only.',
+                        breakdown: {
+                            tenure_score: 0.73,
+                            salary_alignment_score: 0.9,
+                            availability_score: 0.85,
+                            stagnation_score: 0.31,
+                            promotion_likelihood_score: 0.36,
+                            role_relevance_score: 0.72,
+                            engagement_probability_score: 0.77,
+                        },
+                    },
+                },
+            ],
+            total_candidates_retrieved: 2,
+            total_candidates_considered: 2,
+            total_candidates_returned: 2,
+            page: 1,
+            page_size: 2,
+            total_pages: 1,
+        };
 
         const jdInput = document.getElementById('jd-input');
         const topkSelect = document.getElementById('topk-select');
@@ -194,6 +374,8 @@
         const loadingSection = document.getElementById('loading-section');
         const errorSection = document.getElementById('error-section');
         const errorMessage = document.getElementById('error-message');
+        const demoSection = document.getElementById('demo-section');
+        const demoMessage = document.getElementById('demo-message');
         const jdSummary = document.getElementById('jd-summary-section');
         const jdContent = document.getElementById('jd-summary-content');
         const resultsSection = document.getElementById('results-section');
@@ -202,22 +384,79 @@
         const progressStatus = document.getElementById('progress-status');
         const progressDetail = document.getElementById('progress-detail');
 
+        jdInput.value = DEFAULT_DEMO_JD;
+
+        function escapeHtml(value) {
+            return String(value ?? '')
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#39;');
+        }
+
+        function safeText(value, fallback = 'N/A') {
+            const normalized = value === undefined || value === null || value === '' ? fallback : value;
+            return escapeHtml(normalized);
+        }
+
+        function safeList(items) {
+            return Array.isArray(items) ? items.filter(Boolean) : [];
+        }
+
+        function toNumber(value, fallback = 0) {
+            const numeric = Number(value);
+            return Number.isFinite(numeric) ? numeric : fallback;
+        }
+
+        function scoreColor(score) {
+            if (score >= 80) return { bar: 'bg-emerald-500', text: 'text-emerald-300', ring: '#34d399' };
+            if (score >= 60) return { bar: 'bg-amber-500', text: 'text-amber-300', ring: '#f59e0b' };
+            return { bar: 'bg-rose-500', text: 'text-rose-300', ring: '#f43f5e' };
+        }
+
         function setProgress(status, detail) {
             progressStatus.textContent = status;
             progressDetail.textContent = detail;
         }
 
+        function hideBanners() {
+            errorSection.classList.add('hidden');
+            demoSection.classList.add('hidden');
+        }
+
+        function showLoadingPlaceholders(count) {
+            resultsSection.classList.remove('hidden');
+            resultsMeta.textContent = 'Preparing shortlist...';
+            resultsContainer.innerHTML = Array.from({ length: count }).map(() => `
+                <article class="panel rounded-2xl p-5 sm:p-6">
+                    <div class="flex flex-col lg:flex-row gap-5 lg:items-start lg:justify-between">
+                        <div class="flex-1 space-y-3">
+                            <div class="skeleton rounded-full h-6 w-24"></div>
+                            <div class="skeleton rounded-xl h-8 w-56"></div>
+                            <div class="skeleton rounded-xl h-4 w-40"></div>
+                            <div class="skeleton rounded-xl h-16 w-full"></div>
+                        </div>
+                        <div class="skeleton rounded-full h-[70px] w-[70px] shrink-0"></div>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+                        <div class="skeleton rounded-xl h-10"></div>
+                        <div class="skeleton rounded-xl h-10"></div>
+                        <div class="skeleton rounded-xl h-10"></div>
+                    </div>
+                </article>
+            `).join('');
+        }
+
         function showLoading() {
             loadingSection.classList.remove('hidden');
-            errorSection.classList.add('hidden');
+            hideBanners();
             jdSummary.classList.add('hidden');
-            resultsSection.classList.add('hidden');
-            resultsContainer.innerHTML = '';
-            resultsMeta.textContent = '';
             setProgress(
                 'Analyzing job description...',
-                'Running hybrid retrieval, deep ranking, and predictive engagement'
+                'Running hybrid retrieval, technical scoring, and engagement scoring'
             );
+            showLoadingPlaceholders(parseInt(topkSelect.value, 10));
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-60', 'pointer-events-none');
         }
@@ -234,16 +473,20 @@
             errorMessage.textContent = message;
         }
 
-        function scoreColor(score) {
-            if (score >= 80) return { bar: 'bg-emerald-500', text: 'text-emerald-300', ring: '#34d399' };
-            if (score >= 60) return { bar: 'bg-amber-500', text: 'text-amber-300', ring: '#f59e0b' };
-            return { bar: 'bg-rose-500', text: 'text-rose-300', ring: '#f43f5e' };
+        function showDemoFallback(message) {
+            demoSection.classList.remove('hidden');
+            demoMessage.textContent = `${message} Showing a preloaded deterministic shortlist so the demo stays usable.`;
+            if (DEMO_FALLBACK_RESPONSE.parsed_job_description) {
+                renderParsedJd(DEMO_FALLBACK_RESPONSE.parsed_job_description);
+            }
+            renderRankings(DEMO_FALLBACK_RESPONSE.rankings, DEMO_FALLBACK_RESPONSE, true);
         }
 
         function scoreRingSvg(score, color, size = 70) {
+            const safeScore = Math.max(0, Math.min(100, toNumber(score)));
             const radius = (size / 2) - 4;
             const circumference = 2 * Math.PI * radius;
-            const offset = circumference * (1 - (score / 100));
+            const offset = circumference * (1 - (safeScore / 100));
             return `
                 <svg width="${size}" height="${size}" class="-rotate-90">
                     <circle cx="${size / 2}" cy="${size / 2}" r="${radius}" fill="none" stroke="rgba(71,85,105,0.45)" stroke-width="4"></circle>
@@ -254,9 +497,10 @@
         }
 
         function progressBar(score, colorClass) {
+            const safeScore = Math.max(0, Math.min(100, toNumber(score)));
             return `
                 <div class="w-full h-1.5 rounded-full bg-slate-700/60 overflow-hidden">
-                    <div class="progress-fill ${colorClass} h-full rounded-full" style="width: 0%" data-target="${score}"></div>
+                    <div class="progress-fill ${colorClass} h-full rounded-full" style="width: 0%" data-target="${safeScore}"></div>
                 </div>
             `;
         }
@@ -273,9 +517,14 @@
 
         function pillList(items, matched = true) {
             const className = matched ? 'matched-pill' : 'missing-pill';
-            return (items || []).map(item => `
-                <span class="${className} text-[10px] px-2 py-1 rounded-full font-semibold">${item}</span>
+            return safeList(items).map(item => `
+                <span class="${className} text-[10px] px-2 py-1 rounded-full font-semibold break-words">${escapeHtml(item)}</span>
             `).join('');
+        }
+
+        function formatSalaryRange(range) {
+            if (!Array.isArray(range) || range.length !== 2) return null;
+            return `$${toNumber(range[0]).toLocaleString()} - $${toNumber(range[1]).toLocaleString()}`;
         }
 
         function renderParsedJd(parsedJd) {
@@ -284,34 +533,77 @@
             if (parsedJd.seniority) sections.push({ label: 'Seniority', value: parsedJd.seniority });
             if (parsedJd.min_experience_years) sections.push({ label: 'Experience', value: `${parsedJd.min_experience_years}+ years` });
             if (parsedJd.work_mode) sections.push({ label: 'Work mode', value: parsedJd.work_mode });
-            if (parsedJd.salary_range_usd?.length === 2) {
-                sections.push({
-                    label: 'Salary',
-                    value: `$${parsedJd.salary_range_usd[0].toLocaleString()} - $${parsedJd.salary_range_usd[1].toLocaleString()}`
-                });
-            }
-            if (parsedJd.mandatory_skills?.length) sections.push({ label: 'Mandatory', value: parsedJd.mandatory_skills.join(', ') });
-            if (parsedJd.nice_to_have_skills?.length) sections.push({ label: 'Nice to have', value: parsedJd.nice_to_have_skills.join(', ') });
-            if (parsedJd.domain_knowledge?.length) sections.push({ label: 'Domain', value: parsedJd.domain_knowledge.join(', ') });
+
+            const salaryText = formatSalaryRange(parsedJd.salary_range_usd);
+            if (salaryText) sections.push({ label: 'Salary', value: salaryText });
+            if (safeList(parsedJd.mandatory_skills).length) sections.push({ label: 'Mandatory', value: parsedJd.mandatory_skills.join(', ') });
+            if (safeList(parsedJd.nice_to_have_skills).length) sections.push({ label: 'Nice to have', value: parsedJd.nice_to_have_skills.join(', ') });
+            if (safeList(parsedJd.domain_knowledge).length) sections.push({ label: 'Domain', value: parsedJd.domain_knowledge.join(', ') });
 
             jdContent.innerHTML = sections.map(section => `
                 <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4 ${section.value.includes(',') ? 'sm:col-span-2 lg:col-span-3' : ''}">
-                    <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">${section.label}</div>
-                    <div class="text-sm text-slate-100 leading-relaxed">${section.value}</div>
+                    <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">${escapeHtml(section.label)}</div>
+                    <div class="text-sm text-slate-100 leading-relaxed break-words">${escapeHtml(section.value)}</div>
                 </div>
             `).join('');
             jdSummary.classList.remove('hidden');
         }
 
+        function deriveTopStrengths(candidate) {
+            const match = candidate.match_result || {};
+            const strengths = safeList(match.matched_core_skills).slice(0, 3);
+            if (strengths.length) return strengths;
+            return safeList(match.matched_skills).slice(0, 3);
+        }
+
+        function deriveBiggestGap(candidate) {
+            const match = candidate.match_result || {};
+            const biggestGap = safeList(match.missing_core_skills)[0] || safeList(candidate.missing_skills)[0] || safeList(match.missing_skills)[0];
+            return biggestGap || 'No critical gap detected';
+        }
+
+        function displaySortKey(candidate) {
+            const match = candidate.match_result || {};
+            const interest = candidate.interest_result || {};
+            return [
+                safeList(match.missing_core_skills).length ? 0 : -1,
+                -toNumber(match.core_skill_score),
+                -toNumber(candidate.final_score),
+                -toNumber(candidate.match_score ?? match.match_score),
+                -toNumber(candidate.interest_score ?? interest.interest_score),
+                -toNumber(candidate.cross_encoder_score),
+                safeList(match.missing_core_skills).length,
+                String(candidate.candidate_id || ''),
+            ];
+        }
+
+        function sortRankingsForDisplay(rankings) {
+            return [...safeList(rankings)].sort((left, right) => {
+                const leftKey = displaySortKey(left);
+                const rightKey = displaySortKey(right);
+                for (let index = 0; index < leftKey.length; index += 1) {
+                    if (leftKey[index] < rightKey[index]) return -1;
+                    if (leftKey[index] > rightKey[index]) return 1;
+                }
+                return 0;
+            });
+        }
+
         function renderCandidateCard(candidate, index) {
-            const match = candidate.match_result;
-            const interest = candidate.interest_result;
+            const match = candidate.match_result || {};
+            const interest = candidate.interest_result || {};
             const rank = candidate.rank || (index + 1);
-            const technicalMatchScore = candidate.match_score || match.match_score;
-            const finalTone = scoreColor(candidate.final_score);
+            const finalScore = toNumber(candidate.final_score);
+            const technicalMatchScore = toNumber(candidate.match_score ?? match.match_score);
+            const interestScore = toNumber(candidate.interest_score ?? interest.interest_score);
+            const rerankerScore = toNumber(candidate.cross_encoder_score);
+            const flightRiskScore = toNumber(candidate.flight_risk_score ?? interest.flight_risk_score);
+            const finalTone = scoreColor(finalScore);
             const matchTone = scoreColor(technicalMatchScore);
-            const interestTone = scoreColor(candidate.interest_score || interest.interest_score);
+            const interestTone = scoreColor(interestScore);
             const llmProvider = candidate.recruiter_outreach?.provider || 'not requested';
+            const topStrengths = deriveTopStrengths(candidate);
+            const biggestGap = deriveBiggestGap(candidate);
 
             return `
                 <article class="panel rounded-2xl p-5 sm:p-6 candidate-card">
@@ -319,65 +611,76 @@
                         <div class="flex-1">
                             <div class="flex flex-wrap items-center gap-2 mb-3">
                                 <span class="px-2.5 py-1 rounded-full bg-slate-800 text-xs font-bold text-slate-200">#${rank}</span>
-                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/12 text-xs font-semibold text-emerald-300 border border-emerald-500/20">${candidate.recommendation || 'Review'}</span>
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/12 text-xs font-semibold text-emerald-300 border border-emerald-500/20 break-words">${safeText(candidate.recommendation || 'Review')}</span>
                             </div>
-                            <h3 class="text-xl font-bold">${candidate.candidate_name || candidate.full_name}</h3>
-                            <p class="text-sm text-slate-400 mt-1">${candidate.role_title} | ${match.total_experience_years} years</p>
-                            <p class="text-sm text-slate-200/90 mt-4 leading-relaxed">${candidate.summary || candidate.final_explanation}</p>
+                            <h3 class="text-xl font-bold break-words">${safeText(candidate.candidate_name || candidate.full_name)}</h3>
+                            <p class="text-sm text-slate-400 mt-1 break-words">${safeText(candidate.role_title)} | ${safeText(match.total_experience_years, '0')} years</p>
+                            <p class="text-sm text-slate-200/90 mt-4 leading-relaxed break-words">${safeText(candidate.summary || candidate.final_explanation)}</p>
                         </div>
                         <div class="shrink-0">
                             <div class="relative w-[70px] h-[70px]">
-                                ${scoreRingSvg(candidate.final_score, finalTone.ring)}
-                                <span class="absolute inset-0 grid place-items-center text-sm font-extrabold">${candidate.final_score.toFixed(1)}</span>
+                                ${scoreRingSvg(finalScore, finalTone.ring)}
+                                <span class="absolute inset-0 grid place-items-center text-sm font-extrabold">${finalScore.toFixed(1)}</span>
                             </div>
                             <div class="mt-2 text-[10px] uppercase tracking-[0.16em] text-slate-500 text-center">Final Score (Combined)</div>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 text-sm">
+                        <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Top strengths</div>
+                            <div class="font-semibold text-slate-100 break-words">${safeText(topStrengths.join(', '), 'No standout strength captured')}</div>
+                        </div>
+                        <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Biggest gap</div>
+                            <div class="font-semibold text-slate-100 break-words">${safeText(biggestGap)}</div>
+                        </div>
+                        <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Outreach provider</div>
+                            <div class="font-semibold text-slate-100 break-words">${safeText(llmProvider)}</div>
                         </div>
                     </div>
 
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
                         <div>
                             <div class="flex justify-between items-center text-xs mb-1">
-                                <span class="uppercase tracking-[0.16em] text-slate-500">Technical Match</span>
+                                <span class="uppercase tracking-[0.16em] text-slate-500">Technical Match Score</span>
                                 <span class="${matchTone.text} font-bold">${technicalMatchScore.toFixed(1)}</span>
                             </div>
                             ${progressBar(technicalMatchScore, matchTone.bar)}
                         </div>
                         <div>
                             <div class="flex justify-between items-center text-xs mb-1">
-                                <span class="uppercase tracking-[0.16em] text-slate-500">Interest</span>
-                                <span class="${interestTone.text} font-bold">${(candidate.interest_score || interest.interest_score).toFixed(1)}</span>
+                                <span class="uppercase tracking-[0.16em] text-slate-500">Interest Score</span>
+                                <span class="${interestTone.text} font-bold">${interestScore.toFixed(1)}</span>
                             </div>
-                            ${progressBar(candidate.interest_score || interest.interest_score, interestTone.bar)}
+                            ${progressBar(interestScore, interestTone.bar)}
                         </div>
                         <div>
                             <div class="flex justify-between items-center text-xs mb-1">
-                                <span class="uppercase tracking-[0.16em] text-slate-500">Cross Encoder</span>
-                                <span class="text-slate-200 font-bold">${(candidate.cross_encoder_score || 0).toFixed(1)}</span>
+                                <span class="uppercase tracking-[0.16em] text-slate-500">Re-ranker Score</span>
+                                <span class="text-slate-200 font-bold">${rerankerScore.toFixed(1)}</span>
                             </div>
-                            ${progressBar(candidate.cross_encoder_score || 0, 'bg-slate-300')}
+                            ${progressBar(rerankerScore, 'bg-slate-300')}
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-5 text-sm">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5 text-sm">
                         <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
-                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Hybrid Sparse</div>
-                            <div class="font-bold text-slate-100">${(candidate.bm25_score || 0).toFixed(2)}</div>
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Hybrid sparse retrieval</div>
+                            <div class="font-bold text-slate-100">${toNumber(candidate.bm25_score).toFixed(2)}</div>
                         </div>
                         <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
-                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Flight Risk</div>
-                            <div class="font-bold text-slate-100">${(candidate.flight_risk_score || 0).toFixed(1)}</div>
-                        </div>
-                        <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
-                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">LLM Provider</div>
-                            <div class="font-bold text-slate-100">${llmProvider}</div>
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Flight risk</div>
+                            <div class="font-bold text-slate-100">${flightRiskScore.toFixed(1)}</div>
                         </div>
                     </div>
 
                     <div class="mt-5">
-                        <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Skills</div>
+                        <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Verified skills</div>
                         <div class="flex flex-wrap gap-2">
-                            ${pillList(match.matched_skills || [], true)}
-                            ${pillList(candidate.missing_skills || match.missing_skills || [], false)}
+                            ${pillList(match.matched_skills, true)}
+                            ${pillList(candidate.missing_skills || match.missing_skills, false)}
                         </div>
                     </div>
 
@@ -386,24 +689,24 @@
                         <div class="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
                             <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
                                 <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Skill reasoning</div>
-                                <p class="text-slate-200/90 leading-relaxed">${candidate.skill_match_reason || match.explanation}</p>
+                                <p class="text-slate-200/90 leading-relaxed break-words">${safeText(candidate.skill_match_reason || match.explanation)}</p>
                             </div>
                             <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
                                 <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Experience and trajectory</div>
-                                <p class="text-slate-200/90 leading-relaxed">${candidate.experience_match_reason || ''}</p>
+                                <p class="text-slate-200/90 leading-relaxed break-words">${safeText(candidate.experience_match_reason)}</p>
                             </div>
                             <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
                                 <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Interest insight</div>
-                                <p class="text-slate-200/90 leading-relaxed">${candidate.interest_insight || ''}</p>
+                                <p class="text-slate-200/90 leading-relaxed break-words">${safeText(candidate.interest_insight)}</p>
                             </div>
                             <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4">
                                 <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Salary and availability</div>
-                                <p class="text-slate-200/90 leading-relaxed">${candidate.salary_alignment_reason || ''} ${candidate.availability_insight || ''}</p>
+                                <p class="text-slate-200/90 leading-relaxed break-words">${safeText(`${candidate.salary_alignment_reason || ''} ${candidate.availability_insight || ''}`.trim(), 'Not available')}</p>
                             </div>
                             ${candidate.recruiter_outreach ? `
                                 <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4 lg:col-span-2">
                                     <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Recruiter outreach</div>
-                                    <p class="text-slate-200/90 leading-relaxed">${candidate.recruiter_outreach.message}</p>
+                                    <p class="text-slate-200/90 leading-relaxed break-words">${safeText(candidate.recruiter_outreach.message)}</p>
                                 </div>
                             ` : ''}
                         </div>
@@ -412,17 +715,29 @@
             `;
         }
 
-        function renderRankings(rankings, meta) {
-            if (!rankings || rankings.length === 0) return;
+        function renderRankings(rankings, meta, isDemo = false) {
+            const normalizedRankings = sortRankingsForDisplay(rankings);
+            if (!normalizedRankings.length) return;
+
             resultsSection.classList.remove('hidden');
-            resultsContainer.innerHTML = rankings.map((candidate, index) => renderCandidateCard(candidate, index)).join('');
+            resultsContainer.innerHTML = normalizedRankings.map((candidate, index) => renderCandidateCard(candidate, index)).join('');
             if (meta) {
-                resultsMeta.textContent = `${meta.total_candidates_retrieved || '?'} retrieved | ${meta.total_candidates_considered || '?'} scored | page ${meta.page || 1} of ${meta.total_pages || 1}`;
+                const retrieved = meta.total_candidates_retrieved ?? '?';
+                const considered = meta.total_candidates_considered ?? meta.total_candidates_ranked ?? '?';
+                const page = meta.page ?? 1;
+                const totalPages = meta.total_pages ?? 1;
+                resultsMeta.textContent = isDemo
+                    ? `Demo shortlist | ${retrieved} retrieved | ${considered} scored`
+                    : `${retrieved} retrieved | ${considered} scored | page ${page} of ${totalPages}`;
             }
             animateProgressBars();
         }
 
         async function consumeSse(response, handlers) {
+            if (!response.body) {
+                throw new Error('The streaming response did not include a readable body.');
+            }
+
             const reader = response.body.getReader();
             const decoder = new TextDecoder();
             let buffer = '';
@@ -460,6 +775,7 @@
 
             showLoading();
             const streamed = [];
+            let receivedFinalResult = false;
 
             try {
                 const response = await fetch(STREAM_URL, {
@@ -479,31 +795,34 @@
 
                 if (!response.ok) {
                     const errorPayload = await response.json().catch(() => null);
-                    throw new Error(errorPayload?.detail || `Server returned ${response.status}`);
+                    throw new Error(
+                        errorPayload?.error?.message
+                        || errorPayload?.detail
+                        || `Server returned ${response.status}`
+                    );
                 }
 
                 await consumeSse(response, {
                     progress(payload) {
-                        setProgress(payload.message || 'Working...', `Stage: ${payload.stage || 'processing'}`);
+                        setProgress(
+                            payload.message || 'Working...',
+                            payload.detail || `Stage: ${payload.stage || 'processing'}`
+                        );
                     },
                     candidate(payload) {
-                        streamed.push({
-                            ...payload,
-                            rank: streamed.length + 1,
-                        });
+                        streamed.push(payload);
                         setProgress(
                             'Ranking candidates...',
-                            `Received ${streamed.length} candidate result${streamed.length === 1 ? '' : 's'}`
+                            `Validated ${streamed.length} candidate result${streamed.length === 1 ? '' : 's'}`
                         );
-                        renderRankings(
-                            [...streamed].sort((left, right) => right.final_score - left.final_score),
-                            null
-                        );
+                        renderRankings(streamed, null);
                     },
                     result(payload) {
+                        receivedFinalResult = true;
                         hideLoading();
+                        hideBanners();
                         if (payload.parsed_job_description) renderParsedJd(payload.parsed_job_description);
-                        if (!payload.rankings || payload.rankings.length === 0) {
+                        if (!safeList(payload.rankings).length) {
                             showError('No candidates matched this job description. Try broadening the requirements.');
                             return;
                         }
@@ -513,11 +832,21 @@
                         }, 150);
                     },
                     error(payload) {
-                        throw new Error(payload.detail || 'Streaming request failed.');
+                        throw new Error(
+                            payload?.error?.message
+                            || payload?.detail
+                            || 'Streaming request failed.'
+                        );
                     },
                 });
+
+                if (!receivedFinalResult) {
+                    throw new Error('The stream ended before the final shortlist was returned.');
+                }
             } catch (error) {
-                showError(error.message || 'Failed to connect to the backend.');
+                const message = error?.message || 'Failed to connect to the backend.';
+                showError(message);
+                showDemoFallback(message);
             }
         }
 

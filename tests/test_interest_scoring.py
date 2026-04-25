@@ -11,8 +11,9 @@ from app.services.jd_parser import parse_job_description
 
 def test_score_salary_alignment_prefers_in_range_or_below_budget() -> None:
     assert score_salary_alignment("aligned") > score_salary_alignment("above_range")
-    assert score_salary_alignment("below_range") == 1.0
-    assert score_salary_alignment("unknown") == 0.5
+    assert score_salary_alignment("aligned") >= score_salary_alignment("below_range")
+    assert score_salary_alignment("below_range") > score_salary_alignment("above_range")
+    assert score_salary_alignment("unknown") < score_salary_alignment("aligned")
 
 
 def test_score_availability_prefers_faster_candidates() -> None:
@@ -42,6 +43,8 @@ def test_predictive_engagement_returns_explainable_scores() -> None:
     assert result.flight_risk_score > 0
     assert result.salary_alignment == "aligned"
     assert "Flight risk" in result.explanation
+    assert "role relevance" not in result.explanation
+    assert "promotion likelihood" not in result.explanation
 
 
 def test_salary_alignment_utility_matches_expected_bands() -> None:

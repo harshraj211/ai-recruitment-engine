@@ -1,6 +1,6 @@
 # AI-Powered Talent Scouting & Engagement Agent
 
-Production-oriented upgrade of the original talent scouting prototype. The system now uses hybrid retrieval, deep re-ranking, predictive engagement scoring, explainable outputs, and streaming UX while staying inside the existing FastAPI + local data architecture.
+Production-oriented hardening pass of the original talent scouting prototype. The system now uses hybrid retrieval, deep re-ranking, predictive engagement scoring, response validation, explainable outputs, and a demo-safe streaming UX while staying inside the existing FastAPI + local data architecture.
 
 ## What Changed
 
@@ -18,12 +18,16 @@ Production-oriented upgrade of the original talent scouting prototype. The syste
   - mandatory-skill and salary prefilters
 - L2 re-ranking with `cross-encoder/ms-marco-MiniLM-L-6-v2`
 - Deterministic predictive engagement and flight-risk scoring
+- Response validation layer that auto-corrects API payload inconsistencies before emit
 - LLM use restricted to recruiter summaries and outreach
-- Outreach and summary prompts grounded to target-role and verified skill lists
+- Outreach and summary prompts grounded to target-role, salary alignment, and verified skill lists
 - PII masking before LLM prompts
+- Structured pipeline-stage errors instead of generic 500 responses
+- Health endpoint now reports component checks for candidate data, vector index, and LLM mode
 - SSE streaming endpoint for progressive frontend rendering
 - Pagination-ready API responses
-- Strong penalty for candidates missing mandatory skills
+- Deterministic ranking order with stronger protection against candidates missing mandatory skills
+- Frontend loading skeletons, clearer score labels, and deterministic demo fallback rendering
 
 ## Architecture
 
@@ -41,6 +45,7 @@ Pipeline
   -> Cross-Encoder Re-ranker
   -> Match Scoring
   -> Predictive Engagement
+  -> Response Validation
   -> Summary / Outreach
   -> Final Ranking + Pagination
 ```
@@ -56,6 +61,8 @@ Pipeline
 - `app/services/interest_scoring.py`
 - `app/services/conversation_service.py`
 - `app/services/final_ranking.py`
+- `app/services/response_validation.py`
+- `app/services/ranking_consistency.py`
 - `app/services/pipeline_service.py`
 
 ## Install
@@ -78,6 +85,8 @@ Python 3.11 is still the recommended runtime for the full local stack.
 - API docs: `http://127.0.0.1:8000/docs`
 - Health: `http://127.0.0.1:8000/api/v1/health`
 
+Set `LOG_LEVEL=DEBUG` in `.env` if you want per-candidate score component logs during a demo rehearsal.
+
 ## API
 
 ### `POST /api/v1/match`
@@ -95,7 +104,7 @@ Request body:
 }
 ```
 
-Response highlights:
+Corrected response highlights:
 
 ```json
 {
@@ -107,15 +116,15 @@ Response highlights:
   "rankings": [
     {
       "candidate_name": "Rohan Mehta",
-      "match_score": 88.3,
-      "interest_score": 74.1,
-      "final_score": 82.7,
+      "match_score": 84.4,
+      "interest_score": 78.6,
+      "final_score": 81.6,
       "bm25_score": 0.91,
       "cross_encoder_score": 82.0,
-      "flight_risk_score": 68.0,
-      "summary": "Strong backend ML engineer with high core-skill alignment and good switch likelihood.",
-      "missing_skills": ["Vector Search"],
-      "recommendation": "Advance to recruiter screen."
+      "flight_risk_score": 63.0,
+      "summary": "Strong fit on Python, FastAPI, PyTorch, and MLflow, with Vector Search as the primary gap.",
+      "missing_skills": ["Vector Search", "RAG"],
+      "recommendation": "Review manually before outreach due to missing critical skills."
     }
   ],
   "page": 1,
@@ -125,9 +134,28 @@ Response highlights:
 
 Score semantics:
 
-- `final_score`: combined ranking score after technical match, engagement, cross-encoder contribution, and mandatory-skill penalty
-- `match_score`: technical match score only
+- `final_score`: combined ranking score using `0.50 * match_score + 0.25 * interest_score + 0.25 * cross_encoder_score`
+- `match_score`: technical score using weighted skill coverage, experience fit, role alignment, and mandatory-skill penalty
+- `interest_score`: uses salary alignment, availability, and engagement probability only
+- `flight_risk_score`: tracked separately from `interest_score`
 - `cross_encoder_score`: deep re-ranker signal shown separately from the combined score
+- `missing_skills`: corrected to match the computed nested `match_result.missing_skills`
+
+### Structured Errors
+
+When a pipeline stage fails, the API now returns structured JSON:
+
+```json
+{
+  "status": "error",
+  "error": {
+    "code": "retrieval_failed",
+    "stage": "retrieval",
+    "message": "Hybrid retrieval failed."
+  },
+  "detail": "Hybrid retrieval failed."
+}
+```
 
 ### `POST /api/v1/match/stream`
 
@@ -138,6 +166,8 @@ Returns `text/event-stream` with:
 - `result`
 - `error`
 
+The frontend uses a preloaded deterministic shortlist as a demo fallback if the live API call fails.
+
 ## Verification
 
 ```powershell
@@ -145,4 +175,4 @@ Returns `text/event-stream` with:
 .\\.venv\\Scripts\\python scripts\\live_api_test.py
 ```
 
-Current status: `35 passed`
+Current status: `38 passed`

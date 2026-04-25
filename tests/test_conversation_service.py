@@ -94,6 +94,14 @@ class HallucinatingSummaryLLM(BaseCommunicationLLM):
         return "Strong fit overall, but missing AWS."
 
 
+class InventedGapSummaryLLM(BaseCommunicationLLM):
+    provider = "groq"
+    model_name = "fake-groq"
+
+    async def generate_text(self, prompt: dict, *, max_tokens: int) -> str:
+        return "Strong fit overall, but missing Kubernetes."
+
+
 def test_summary_falls_back_when_llm_invents_missing_skill() -> None:
     candidate = load_candidate_lookup()["cand-002"]
     parsed_jd = parse_job_description(
@@ -115,3 +123,26 @@ def test_summary_falls_back_when_llm_invents_missing_skill() -> None:
     assert provider == "deterministic"
     assert fallback_reason is not None
     assert "missing AWS" not in summary
+
+
+def test_summary_falls_back_when_llm_invents_unverified_gap() -> None:
+    candidate = load_candidate_lookup()["cand-002"]
+    parsed_jd = parse_job_description(
+        """
+        We are hiring a Senior Machine Learning Engineer.
+        Required skills: Python, FastAPI, PyTorch, Docker, AWS, and vector search.
+        Budget: $50,000 - $65,000 annually.
+        """
+    )
+    match_result = score_candidate_match(parsed_jd, candidate)
+    interest_result = PredictiveEngagementService().score_candidate(candidate, parsed_jd)
+
+    service = RecruiterCommunicationService(llm=InventedGapSummaryLLM())
+
+    summary, provider, fallback_reason = asyncio.run(
+        service.generate_summary(candidate, parsed_jd, match_result, interest_result)
+    )
+
+    assert provider == "deterministic"
+    assert fallback_reason is not None
+    assert "Kubernetes" not in summary

@@ -25,5 +25,6 @@ def test_health_route() -> None:
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "ok"
+    assert payload["status"] in {"ok", "degraded"}
     assert payload["app_name"] == "AI-Powered Talent Scouting & Engagement Agent"
+    assert payload["checks"]["candidate_data"]["status"] == "ok"

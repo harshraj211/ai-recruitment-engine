@@ -1,3 +1,4 @@
+import logging
 import re
 from dataclasses import dataclass
 
@@ -7,14 +8,16 @@ from app.schemas.match_scoring import CandidateMatchResult
 from app.services.experience_intelligence import build_skill_recency_weights, career_trajectory_boost
 from app.services.skill_graph import SkillGraphService, normalize_skill
 
+logger = logging.getLogger(__name__)
+
 DEFAULT_SKILLS_WEIGHT = 0.65
 DEFAULT_EXPERIENCE_WEIGHT = 0.20
 DEFAULT_ROLE_WEIGHT = 0.15
 CORE_SKILL_WEIGHT = 2.0
 SECONDARY_SKILL_WEIGHT = 1.0
 MIN_SKILL_MATCH_THRESHOLD = 0.55
-MANDATORY_SKILL_PENALTY_THRESHOLD = 0.70
-MANDATORY_SKILL_PENALTY_MULTIPLIER = 0.60
+MANDATORY_SKILL_PENALTY_THRESHOLD = 1.0
+MANDATORY_SKILL_PENALTY_MULTIPLIER = 0.97
 
 ROLE_FAMILY_KEYWORDS = {
     "machine learning": {"machine", "learning", "ml", "ai", "mlops", "scientist"},
@@ -158,10 +161,43 @@ def _score_skill_group(
     return sum(matched_scores) / len(required_skills), matched, missing, details
 
 
+def calculate_mandatory_skill_penalty_multiplier(core_skill_score: float) -> float:
+    if core_skill_score >= MANDATORY_SKILL_PENALTY_THRESHOLD:
+        return 1.0
+
+    missing_ratio = 1.0 - max(0.0, min(core_skill_score, 1.0))
+    if missing_ratio <= 0.15:
+        return MANDATORY_SKILL_PENALTY_MULTIPLIER
+    if missing_ratio <= 0.30:
+        return 0.75
+    if missing_ratio <= 0.50:
+        return 0.55
+    return 0.35
+
+
 def apply_mandatory_skill_penalty(score: float, core_skill_score: float) -> float:
-    if core_skill_score < MANDATORY_SKILL_PENALTY_THRESHOLD:
-        return score * MANDATORY_SKILL_PENALTY_MULTIPLIER
-    return score
+    return score * calculate_mandatory_skill_penalty_multiplier(core_skill_score)
+
+
+def calculate_match_score_from_components(
+    skill_match_score: float,
+    experience_match_score: float,
+    role_alignment_score: float,
+    trajectory_boost_score: float,
+    core_skill_score: float,
+    *,
+    skills_weight: float = DEFAULT_SKILLS_WEIGHT,
+    experience_weight: float = DEFAULT_EXPERIENCE_WEIGHT,
+    role_weight: float = DEFAULT_ROLE_WEIGHT,
+) -> float:
+    total_weight = skills_weight + experience_weight + role_weight
+    base_score = (
+        (skills_weight * skill_match_score)
+        + (experience_weight * experience_match_score)
+        + (role_weight * role_alignment_score)
+    ) / total_weight
+    penalized_base_score = apply_mandatory_skill_penalty(base_score, core_skill_score)
+    return min(penalized_base_score + trajectory_boost_score, 1.0) * 100.0
 
 
 def calculate_weighted_skill_match(
@@ -272,9 +308,10 @@ def build_match_explanation(
     )
     trajectory_summary = f"Career trajectory boost {trajectory_boost_score * 100:.1f}%."
     penalty_summary = ""
-    if skill_breakdown.core_skill_score < MANDATORY_SKILL_PENALTY_THRESHOLD:
+    penalty_multiplier = calculate_mandatory_skill_penalty_multiplier(skill_breakdown.core_skill_score)
+    if penalty_multiplier < 1.0:
         penalty_summary = (
-            f" Mandatory-skill penalty applied because core coverage is "
+            f" Mandatory-skill penalty x{penalty_multiplier:.2f} applied because core coverage is "
             f"{skill_breakdown.core_skill_score * 100:.1f}%."
         )
     final_summary = f"Final Match Score {match_score:.1f}%."
@@ -305,14 +342,30 @@ def score_candidate_match(
     role_alignment_score = calculate_role_alignment(parsed_jd, candidate)
     trajectory_boost_score = career_trajectory_boost(candidate)
 
-    total_weight = skills_weight + experience_weight + role_weight
-    base_score = (
-        (skills_weight * skill_breakdown.score)
-        + (experience_weight * experience_match_score)
-        + (role_weight * role_alignment_score)
-    ) / total_weight
-    penalized_base_score = apply_mandatory_skill_penalty(base_score, skill_breakdown.core_skill_score)
-    match_score = min(penalized_base_score + trajectory_boost_score, 1.0) * 100
+    match_score = calculate_match_score_from_components(
+        skill_breakdown.score,
+        experience_match_score,
+        role_alignment_score,
+        trajectory_boost_score,
+        skill_breakdown.core_skill_score,
+        skills_weight=skills_weight,
+        experience_weight=experience_weight,
+        role_weight=role_weight,
+    )
+
+    logger.debug(
+        "Match score candidate=%s skill=%.4f core=%.4f secondary=%.4f experience=%.4f role=%.4f "
+        "trajectory=%.4f penalty_multiplier=%.4f final_match=%.2f",
+        candidate.id,
+        skill_breakdown.score,
+        skill_breakdown.core_skill_score,
+        skill_breakdown.secondary_skill_score,
+        experience_match_score,
+        role_alignment_score,
+        trajectory_boost_score,
+        calculate_mandatory_skill_penalty_multiplier(skill_breakdown.core_skill_score),
+        match_score,
+    )
 
     return CandidateMatchResult(
         candidate_id=candidate.id,
@@ -378,12 +431,13 @@ def rank_candidates_by_match(
     return sorted(
         results,
         key=lambda item: (
-            item.match_score,
-            item.core_skill_score,
-            item.cross_encoder_score if item.cross_encoder_score is not None else -1.0,
-            item.skill_match_score,
-            item.semantic_similarity_score if item.semantic_similarity_score is not None else -1.0,
-            item.total_experience_years,
+            0 if item.missing_core_skills else -1,
+            -item.core_skill_score,
+            -item.match_score,
+            -(item.cross_encoder_score if item.cross_encoder_score is not None else -1.0),
+            -item.skill_match_score,
+            -(item.semantic_similarity_score if item.semantic_similarity_score is not None else -1.0),
+            -item.total_experience_years,
+            item.candidate_id,
         ),
-        reverse=True,
     )

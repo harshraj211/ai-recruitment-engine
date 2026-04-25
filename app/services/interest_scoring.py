@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import math
 
 from app.schemas.candidate import Candidate
@@ -7,17 +8,19 @@ from app.schemas.job_description import ParsedJobDescription
 from app.services.experience_intelligence import latest_tenure_years, promotion_velocity, stagnation_score
 from app.services.match_scoring import calculate_role_alignment
 
+logger = logging.getLogger(__name__)
+
 SALARY_ALIGNMENT_WEIGHTS = {
-    "aligned": 0.85,
-    "below_range": 1.0,
+    "aligned": 0.90,
+    "below_range": 0.82,
     "above_range": 0.15,
-    "unknown": 0.50,
+    "unknown": 0.45,
 }
 
 ENGAGEMENT_STATUS_WEIGHTS = {
-    "open_to_work": 1.0,
-    "exploring": 0.78,
-    "passive": 0.52,
+    "open_to_work": 0.92,
+    "exploring": 0.74,
+    "passive": 0.46,
 }
 
 
@@ -42,9 +45,9 @@ def score_salary_alignment(salary_alignment: str) -> float:
 
 def score_availability(availability_days: int | None) -> float:
     if availability_days is None:
-        return 0.5
+        return 0.45
     if availability_days <= 15:
-        return 1.0
+        return 0.95
     if availability_days <= 30:
         return 0.85
     if availability_days <= 45:
@@ -65,8 +68,25 @@ def score_tenure_peak(tenure_years: float) -> float:
 def score_engagement_probability(candidate: Candidate) -> float:
     base = ENGAGEMENT_STATUS_WEIGHTS.get(candidate.current_status, 0.55)
     if candidate.work_preference == "remote":
-        base = min(base + 0.05, 1.0)
+        base = min(base + 0.03, 0.95)
     return base
+
+
+def calculate_flight_risk_score(breakdown: InterestScoreBreakdown) -> float:
+    return (
+        (0.32 * breakdown.tenure_score)
+        + (0.28 * breakdown.salary_alignment_score)
+        + (0.25 * breakdown.stagnation_score)
+        + (0.15 * (1.0 - breakdown.promotion_likelihood_score))
+    ) * 100.0
+
+
+def calculate_interest_score_from_breakdown(breakdown: InterestScoreBreakdown) -> float:
+    return (
+        (0.45 * breakdown.salary_alignment_score)
+        + (0.30 * breakdown.availability_score)
+        + (0.25 * breakdown.engagement_probability_score)
+    ) * 100.0
 
 
 def build_interest_explanation(
@@ -78,14 +98,11 @@ def build_interest_explanation(
 ) -> str:
     availability_text = f"{availability_days} days" if availability_days is not None else "unknown"
     return (
-        f"Predictive engagement uses tenure peak {breakdown.tenure_score:.2f}, "
-        f"salary alignment {salary_alignment} ({breakdown.salary_alignment_score:.2f}), "
+        f"Interest Score uses salary alignment {salary_alignment} ({breakdown.salary_alignment_score:.2f}), "
         f"availability {availability_text} ({breakdown.availability_score:.2f}), "
-        f"career stagnation ({breakdown.stagnation_score:.2f}), "
-        f"promotion likelihood ({breakdown.promotion_likelihood_score:.2f}), "
-        f"role relevance ({breakdown.role_relevance_score:.2f}), "
-        f"engagement probability ({breakdown.engagement_probability_score:.2f}). "
-        f"Flight risk {flight_risk_score:.1f}%. Final Interest Score {interest_score:.1f}%."
+        f"and engagement probability ({breakdown.engagement_probability_score:.2f}). "
+        f"Flight risk is tracked separately at {flight_risk_score:.1f}% using tenure and career-movement signals. "
+        f"Final Interest Score {interest_score:.1f}%."
     )
 
 
@@ -113,20 +130,20 @@ class PredictiveEngagementService:
             engagement_probability_score=score_engagement_probability(candidate),
         )
 
-        flight_risk = (
-            (0.32 * breakdown.tenure_score)
-            + (0.28 * breakdown.salary_alignment_score)
-            + (0.25 * breakdown.stagnation_score)
-            + (0.15 * (1.0 - breakdown.promotion_likelihood_score))
-        ) * 100
+        flight_risk = calculate_flight_risk_score(breakdown)
+        interest_score = calculate_interest_score_from_breakdown(breakdown)
 
-        interest_score = (
-            (0.35 * (flight_risk / 100.0))
-            + (0.20 * breakdown.role_relevance_score)
-            + (0.15 * breakdown.availability_score)
-            + (0.15 * breakdown.engagement_probability_score)
-            + (0.15 * breakdown.salary_alignment_score)
-        ) * 100
+        logger.debug(
+            "Interest score candidate=%s salary_alignment=%s salary=%.4f availability=%.4f "
+            "engagement=%.4f flight_risk=%.2f final_interest=%.2f",
+            candidate.id,
+            salary_alignment,
+            breakdown.salary_alignment_score,
+            breakdown.availability_score,
+            breakdown.engagement_probability_score,
+            flight_risk,
+            interest_score,
+        )
 
         return CandidateInterestResult(
             candidate_id=candidate.id,

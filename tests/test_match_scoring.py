@@ -66,7 +66,7 @@ def test_score_candidate_match_returns_explainable_breakdown() -> None:
 
     assert result.skill_match_score >= 0.80
     assert result.experience_match_score == 1.0
-    assert result.match_score > 85.0
+    assert result.match_score > 80.0
     assert result.missing_core_skills == ["Vector Search"]
     assert "Missing critical skills" in result.explanation
 

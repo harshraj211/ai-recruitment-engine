@@ -2,7 +2,7 @@
 
 ## Goal
 
-Upgrade the original hackathon talent scouting prototype into a production-oriented talent intelligence engine while keeping the existing FastAPI service boundary, modular service layout, local dataset flow, and demo-friendly frontend.
+Harden the original hackathon talent scouting prototype into a production-oriented talent intelligence engine while keeping the existing FastAPI service boundary, modular service layout, local dataset flow, and demo-friendly frontend.
 
 ## Current Architecture
 
@@ -22,6 +22,7 @@ Pipeline Orchestrator
   -> Cross-encoder re-ranking
   -> Weighted skill / experience / role scoring
   -> Predictive engagement scoring
+  -> Response validation and auto-correction
   -> LLM summary + outreach with PII masking
   -> Final ranking + pagination
 
@@ -54,20 +55,24 @@ Data / Models
 - L2 ranking now includes a cross-encoder stage.
 - Interest scoring no longer uses fake recruiter-candidate simulation.
 - Predictive engagement now uses deterministic signals:
-  - tenure peaks
   - salary alignment
   - availability
-  - stagnation
-  - promotion likelihood
-  - role relevance
-  - flight risk
+  - engagement probability
+- Flight risk remains separate and is driven by tenure and career-movement signals.
 - LLM usage is restricted to:
   - recruiter outreach generation
   - concise recruiter summaries
 - Outreach prompts reference only the target JD role title, not the candidate's current role title.
-- Summary prompts include verified matched and missing skill lists, plus a contradiction guard against hallucinated missing skills.
+- Summary and outreach prompts include verified matched skills, verified missing skills, role, and salary alignment, plus contradiction guards against hallucinated gaps.
 - PII is masked before LLM prompts.
-- Final ranking applies a strong penalty when mandatory skill coverage drops below 70%.
+- Final ranking is deterministic and favors candidates who satisfy mandatory skills before tie-breaking on score.
+- A response validation service now auto-corrects:
+  - flat vs nested score mismatches
+  - skill chip vs explanation mismatches
+  - incorrect missing skill lists
+  - contradictory LLM summary/outreach text
+- API errors are now returned as structured stage-specific payloads.
+- Health checks report candidate data, vector index, and LLM mode.
 - API responses now include flattened product-facing fields:
   - `candidate_name`
   - `match_score`
@@ -81,7 +86,8 @@ Data / Models
   - `recommendation`
 - Pagination is supported.
 - Frontend now streams progress and candidate cards progressively via SSE.
-- Frontend score labels now distinguish `Final Score (Combined)` from `Technical Match`, and the provider label shows the actual outreach LLM provider.
+- Frontend score labels now distinguish `Final Score (Combined)`, `Technical Match Score`, `Interest Score`, and `Re-ranker Score`.
+- Frontend includes loading skeletons, structured error rendering, and a deterministic demo fallback shortlist if the live API fails.
 
 ## Key Services
 
@@ -94,6 +100,8 @@ Data / Models
 - `app/services/interest_scoring.py`
 - `app/services/conversation_service.py`
 - `app/services/final_ranking.py`
+- `app/services/response_validation.py`
+- `app/services/ranking_consistency.py`
 - `app/services/pipeline_service.py`
 
 ## API Surface
@@ -120,6 +128,14 @@ Data / Models
   - nested `match_result`
   - nested `interest_result`
 
+Structured error payloads now use:
+
+- `status`
+- `error.code`
+- `error.stage`
+- `error.message`
+- `detail`
+
 ## Verified Commands
 
 - `.\\.venv\\Scripts\\python -m pytest tests -q`
@@ -127,7 +143,7 @@ Data / Models
 
 ## Current Test Status
 
-- `35 passed`
+- `38 passed`
 
 ## Run Locally
 
@@ -142,4 +158,4 @@ Data / Models
 
 - `requirements.txt` now includes `spacy` and `rank-bm25`.
 - The local frontend is intentionally static and backend-served for demo simplicity.
-- External LLM failures no longer silently change candidate scoring behavior; deterministic scoring remains the source of truth.
+- External LLM failures no longer silently change candidate scoring behavior; deterministic scoring and response validation remain the source of truth.

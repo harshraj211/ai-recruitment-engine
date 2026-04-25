@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from app.schemas.final_ranking import FinalCandidateRanking
@@ -22,3 +24,14 @@ class MatchResponse(BaseModel):
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=5, ge=1)
     total_pages: int = Field(default=1, ge=1)
+
+
+class ErrorDetail(BaseModel):
+    code: str
+    stage: str
+    message: str
+
+
+class ErrorResponse(BaseModel):
+    status: Literal["error"] = "error"
+    error: ErrorDetail
