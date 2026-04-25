@@ -2,9 +2,17 @@ import asyncio
 import json
 import logging
 import re
+from datetime import UTC, datetime
+from pathlib import Path
+from uuid import uuid4
 
 from app.core.config import get_settings
 from app.schemas.candidate import Candidate
+from app.schemas.conversation import (
+    CandidateConversation,
+    ConversationSignals,
+    ConversationTurn,
+)
 from app.schemas.job_description import ParsedJobDescription
 from app.schemas.outreach import RecruiterOutreach
 from app.services.interest_scoring import CandidateInterestResult, calculate_salary_alignment
@@ -27,6 +35,30 @@ def _format_skill_list(skills: list[str]) -> str:
 
 def _normalize_text(value: str) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9+]+", " ", value.lower())).strip()
+
+
+def _interest_level(interest_score: float) -> str:
+    if interest_score >= 78:
+        return "high"
+    if interest_score >= 55:
+        return "medium"
+    return "low"
+
+
+def _conversation_sentiment(interest_level: str, salary_alignment: str) -> str:
+    if interest_level == "high" and salary_alignment != "above_range":
+        return "positive"
+    if interest_level == "low" or salary_alignment == "above_range":
+        return "negative"
+    return "neutral"
+
+
+def _conversation_confidence(interest_result: CandidateInterestResult) -> str:
+    if interest_result.salary_alignment == "aligned" and interest_result.availability_days is not None:
+        return "high"
+    if interest_result.salary_alignment == "above_range":
+        return "low"
+    return "medium"
 
 
 def _summary_mentions_contradictory_missing_skill(summary: str, matched_skills: list[str]) -> bool:
@@ -409,6 +441,111 @@ class RecruiterCommunicationService:
                 model=self.fallback_llm.model_name,
                 fallback_reason=str(exc),
             )
+
+    async def generate_simulated_conversation(
+        self,
+        candidate: Candidate,
+        parsed_jd: ParsedJobDescription,
+        match_result: CandidateMatchResult,
+        interest_result: CandidateInterestResult,
+    ) -> CandidateConversation:
+        role_title = parsed_jd.role_title or "the role"
+        strongest_skills = ", ".join(match_result.matched_core_skills[:3] or match_result.matched_skills[:3])
+        strongest_skills = strongest_skills or "your background"
+        interest_level = _interest_level(interest_result.interest_score)
+        sentiment = _conversation_sentiment(interest_level, interest_result.salary_alignment)
+        confidence = _conversation_confidence(interest_result)
+        availability = interest_result.availability_days
+        availability_text = f"{availability} days" if availability is not None else "a timeline to be confirmed"
+        salary_text = f"${candidate.expected_salary_usd:,}"
+
+        if interest_level == "high":
+            interest_response = (
+                f"Yes, this sounds relevant. The {role_title} scope lines up well with my work in "
+                f"{strongest_skills}, and I would be open to learning more."
+            )
+        elif interest_level == "medium":
+            interest_response = (
+                f"I am open to a conversation. The {role_title} work sounds relevant, especially around "
+                f"{strongest_skills}, but I would want to understand team scope and growth path."
+            )
+        else:
+            interest_response = (
+                f"I am not actively looking right now. I can review the {role_title} details, but it would "
+                "need to be a strong fit on scope and compensation."
+            )
+
+        transcript = [
+            ConversationTurn(
+                stage="consent",
+                speaker="recruiter",
+                message=f"Hi, can I share a {role_title} opportunity that appears aligned with your profile?",
+            ),
+            ConversationTurn(
+                stage="consent",
+                speaker="candidate",
+                message="Yes, you can share the details.",
+            ),
+            ConversationTurn(
+                stage="interest",
+                speaker="recruiter",
+                message=f"The role needs {strongest_skills}. Would this be interesting for your next move?",
+            ),
+            ConversationTurn(stage="interest", speaker="candidate", message=interest_response),
+            ConversationTurn(
+                stage="salary",
+                speaker="recruiter",
+                message="What compensation range would make sense for you?",
+            ),
+            ConversationTurn(
+                stage="salary",
+                speaker="candidate",
+                message=f"My current expectation is around {salary_text}; I am flexible if the role scope is strong.",
+            ),
+            ConversationTurn(
+                stage="availability",
+                speaker="recruiter",
+                message="If both sides see a fit, when could you realistically start?",
+            ),
+            ConversationTurn(
+                stage="availability",
+                speaker="candidate",
+                message=f"I could be available in about {availability_text}.",
+            ),
+        ]
+
+        summary = (
+            f"Simulated outreach indicates {interest_level} interest with {interest_result.salary_alignment} "
+            f"salary alignment and availability around {availability_text}."
+        )
+        conversation_id = f"conv-{candidate.id}-{uuid4().hex[:8]}"
+        storage_dir = Path(get_settings().conversation_log_path)
+        storage_dir.mkdir(parents=True, exist_ok=True)
+        storage_path = storage_dir / f"{conversation_id}.json"
+        conversation = CandidateConversation(
+            conversation_id=conversation_id,
+            candidate_id=candidate.id,
+            full_name=candidate.full_name,
+            role_title=role_title,
+            provider="deterministic",
+            model="simulated-outreach-v1",
+            created_at=datetime.now(UTC).isoformat(),
+            summary=summary,
+            transcript=transcript,
+            signals=ConversationSignals(
+                consent_given=True,
+                interest_level=interest_level,
+                sentiment=sentiment,
+                confidence=confidence,
+                specificity="high" if availability is not None else "medium",
+                salary_expectation_usd=candidate.expected_salary_usd,
+                salary_alignment=interest_result.salary_alignment,
+                availability_days=availability,
+            ),
+            storage_path=str(storage_path),
+        )
+        storage_path.write_text(conversation.model_dump_json(indent=2), encoding="utf-8")
+        return conversation
 
     async def generate_summary(
         self,

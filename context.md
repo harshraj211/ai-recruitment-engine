@@ -31,6 +31,7 @@ Pipeline Orchestrator
   -> Cross-encoder re-ranking
   -> Weighted skill / experience / role scoring
   -> Predictive engagement scoring
+  -> Simulated outreach conversation
   -> Response validation and auto-correction
   -> LLM summary + outreach with PII masking
   -> Final ranking + pagination
@@ -73,6 +74,10 @@ Data / Models
   - recruiter outreach generation
   - concise recruiter summaries
   - AI-powered job description generation (via `/generate-jd`)
+- Simulated conversational engagement now produces:
+  - recruiter/candidate transcript turns for consent, interest, salary, and availability
+  - structured signals for consent, interest level, sentiment, confidence, salary alignment, and availability
+  - JSON conversation logs under `data/conversations/`
 - Outreach prompts reference only the target JD role title, not the candidate's current role title.
 - Summary and outreach prompts include verified matched skills, verified missing skills, role, and salary alignment, plus contradiction guards against hallucinated gaps.
 - PII is masked before LLM prompts.
@@ -100,6 +105,7 @@ Data / Models
   - `summary`
   - `missing_skills`
   - `recommendation`
+  - `engagement_conversation`
 - Pagination is supported.
 - Frontend now streams progress and candidate cards progressively via SSE.
 - Frontend score labels now distinguish `Final Score (Combined)`, `Technical Match Score`, `Interest Score`, and `Re-ranker Score`.
@@ -112,6 +118,7 @@ Data / Models
   - **Local Dataset**: default active source.
   - **Upload JSON**: accepts a browser JSON file upload and activates validated records.
   - **Simulated External API**: switches to the mock external candidate endpoint.
+- Candidate cards now expose the simulated engagement transcript inside the explanation panel so judges can see how interest was assessed.
 
 ## Key Services
 
@@ -178,12 +185,13 @@ Structured error payloads now use:
 
 - `.\\.venv\\Scripts\\python -m pytest tests\\test_data_sources.py -q`
 - `.\\.venv\\Scripts\\python -m pytest tests\\test_system_routes.py -q`
+- `.\\.venv\\Scripts\\python -m pytest tests\\test_conversation_service.py -q`
 - `.\\.venv\\Scripts\\python -m pytest tests -q`
 - `.\\.venv\\Scripts\\python scripts\\live_api_test.py`
 
 ## Current Test Status
 
-- `42 passed`
+- `43 passed`
 
 ## Run Locally
 
@@ -204,3 +212,4 @@ Structured error payloads now use:
 - The `/generate-jd` endpoint uses a dedicated Groq prompt with temperature 0.4 for creative-but-grounded output, and always falls back to a deterministic template on any failure (no API key, network error, short response, etc.).
 - The Input Mode Selector only extends input handling; no core pipeline logic was modified.
 - The Data Source Selector only changes candidate ingestion and cache invalidation; no core matching logic was modified.
+- Conversational engagement is deterministic and simulated by design, matching the hackathon scope without requiring live candidate messaging or authentication.

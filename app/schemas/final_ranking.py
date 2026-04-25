@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 
+from app.schemas.conversation import CandidateConversation
 from app.schemas.interest_scoring import CandidateInterestResult
 from app.schemas.match_scoring import CandidateMatchResult
 from app.schemas.outreach import RecruiterOutreach
@@ -29,6 +30,7 @@ class FinalCandidateRanking(BaseModel):
     salary_alignment_reason: str = ""
     availability_insight: str = ""
     recruiter_outreach: RecruiterOutreach | None = None
+    engagement_conversation: CandidateConversation | None = None
 
 
 class FinalRankingRun(BaseModel):

@@ -889,6 +889,38 @@
             return biggestGap || 'No critical gap detected';
         }
 
+        function renderEngagementConversation(conversation) {
+            if (!conversation) return '';
+            const signals = conversation.signals || {};
+            const transcript = safeList(conversation.transcript).slice(0, 8);
+            const turns = transcript.map(turn => `
+                <div class="grid grid-cols-[88px_1fr] gap-3 py-2 border-t border-slate-800 first:border-t-0">
+                    <div class="text-[10px] uppercase tracking-[0.14em] text-slate-500">${safeText(turn.speaker)}</div>
+                    <div>
+                        <div class="text-[10px] uppercase tracking-[0.14em] text-slate-600 mb-1">${safeText(turn.stage)}</div>
+                        <p class="text-slate-200/90 leading-relaxed break-words">${safeText(turn.message)}</p>
+                    </div>
+                </div>
+            `).join('');
+
+            return `
+                <div class="rounded-2xl bg-slate-950/60 border border-slate-800 p-4 lg:col-span-2">
+                    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3">
+                        <div>
+                            <div class="text-[10px] uppercase tracking-[0.16em] text-slate-500 mb-2">Simulated engagement</div>
+                            <p class="text-slate-200/90 leading-relaxed break-words">${safeText(conversation.summary)}</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2 text-[10px] font-semibold">
+                            <span class="matched-pill px-2 py-1 rounded-full">${safeText(signals.interest_level, 'unknown')} interest</span>
+                            <span class="px-2 py-1 rounded-full bg-slate-800 text-slate-300">${safeText(signals.salary_alignment, 'unknown')}</span>
+                            <span class="px-2 py-1 rounded-full bg-slate-800 text-slate-300">${safeText(signals.availability_days, '?')} days</span>
+                        </div>
+                    </div>
+                    <div class="mt-2 text-sm">${turns}</div>
+                </div>
+            `;
+        }
+
         function displaySortKey(candidate) {
             const match = candidate.match_result || {};
             const interest = candidate.interest_result || {};
@@ -1036,6 +1068,7 @@
                                     <p class="text-slate-200/90 leading-relaxed break-words">${safeText(candidate.recruiter_outreach.message)}</p>
                                 </div>
                             ` : ''}
+                            ${renderEngagementConversation(candidate.engagement_conversation)}
                         </div>
                     </details>
                 </article>

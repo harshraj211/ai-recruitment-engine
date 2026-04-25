@@ -18,29 +18,73 @@ A FastAPI-based recruitment intelligence demo that parses job descriptions, retr
 
 ## Architecture
 
-```text
-Frontend
-  -> Data Source selector
-  -> Input Mode selector
-  -> POST /api/v1/match/stream
-
-FastAPI
-  -> /api/v1/data-source
-  -> /api/v1/mock-candidates
-  -> /api/v1/match
-  -> /api/v1/match/stream
-  -> /api/v1/generate-jd
-
-Pipeline
-  -> JD Parser
-  -> Hybrid Retrieval
-  -> Cross-Encoder Re-ranker
-  -> Match Scoring
-  -> Predictive Engagement
-  -> Response Validation
-  -> Summary / Outreach
-  -> Final Ranking + Pagination
+```mermaid
+flowchart LR
+    UI[Static Frontend] --> DS[Data Source Mode]
+    DS --> Local[Local candidates.json]
+    DS --> Upload[Uploaded JSON]
+    DS --> Mock[Mock External API]
+    UI --> Stream[POST /api/v1/match/stream]
+    Stream --> Parser[JD Parser]
+    Parser --> Retrieval[Hybrid Retrieval: BM25 + FAISS + RRF]
+    Retrieval --> Rerank[Cross-Encoder Re-ranker]
+    Rerank --> Match[Match Score]
+    Rerank --> Interest[Interest Score]
+    Interest --> Conversation[Simulated Outreach Conversation]
+    Match --> Final[Combined Ranked Shortlist]
+    Interest --> Final
+    Conversation --> Final
 ```
+
+## Scoring Logic
+
+The recruiter sees both the separate dimensions required by the problem statement and a combined ordering score.
+
+- `Match Score`: weighted skill coverage, mandatory-skill coverage, experience fit, role alignment, trajectory boost, semantic similarity, and cross-encoder evidence.
+- `Interest Score`: salary alignment, availability, and engagement probability.
+- `Flight Risk`: tracked separately using tenure and career-movement signals so it does not pollute the interest score.
+- `Final Score`: `0.50 * Match Score + 0.25 * Interest Score + 0.25 * Cross-Encoder Score`.
+- `Simulated Engagement`: generates recruiter/candidate transcript turns for consent, interest, salary, and availability, then exposes structured interest signals.
+
+## Sample Use Case
+
+Input:
+
+```text
+We are hiring a Senior Machine Learning Engineer for a talent intelligence platform.
+Must have Python, FastAPI, PyTorch, Docker, AWS, MLflow, and vector search.
+Nice to have RAG. Salary budget is $50,000 to $65,000 and this role is remote.
+```
+
+Output highlights:
+
+```json
+{
+  "candidate_name": "Rohan Mehta",
+  "match_score": 84.9,
+  "interest_score": 78.6,
+  "final_score": 82.4,
+  "missing_skills": ["Vector Search"],
+  "recommendation": "Review manually before outreach due to missing critical skills.",
+  "engagement_conversation": {
+    "signals": {
+      "consent_given": true,
+      "interest_level": "high",
+      "salary_alignment": "aligned",
+      "availability_days": 21
+    }
+  }
+}
+```
+
+## Submission Checklist
+
+- Working prototype: run locally with the command below or deploy the FastAPI app.
+- Public repo: include this README and source code.
+- Architecture: see the Mermaid diagram above.
+- Scoring description: see `Scoring Logic`.
+- Sample input/output: see `Sample Use Case`.
+- Demo video: record the frontend flow from Data Source selection through ranked shortlist and engagement transcript.
 
 ## Setup
 

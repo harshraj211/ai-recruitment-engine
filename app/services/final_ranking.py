@@ -119,6 +119,7 @@ class FinalRankingService:
                 )
             )
             recruiter_outreach_task = None
+            engagement_conversation_task = None
             if include_outreach:
                 recruiter_outreach_task = asyncio.create_task(
                     self.communication_service.generate_outreach(
@@ -128,14 +129,34 @@ class FinalRankingService:
                         interest_result,
                     )
                 )
+                if hasattr(self.communication_service, "generate_simulated_conversation"):
+                    engagement_conversation_task = asyncio.create_task(
+                        self.communication_service.generate_simulated_conversation(
+                            candidate,
+                            parsed_jd,
+                            match_result,
+                            interest_result,
+                        )
+                    )
 
             recruiter_outreach = None
+            engagement_conversation = None
             if recruiter_outreach_task is not None:
-                summary_payload, recruiter_outreach = await asyncio.gather(
-                    summary_task,
-                    recruiter_outreach_task,
-                )
-                summary, _, _ = summary_payload
+                if engagement_conversation_task is not None:
+                    gathered = await asyncio.gather(
+                        summary_task,
+                        recruiter_outreach_task,
+                        engagement_conversation_task,
+                    )
+                    summary, _, _ = gathered[0]
+                    recruiter_outreach = gathered[1]
+                    engagement_conversation = gathered[2]
+                else:
+                    summary_payload, recruiter_outreach = await asyncio.gather(
+                        summary_task,
+                        recruiter_outreach_task,
+                    )
+                    summary, _, _ = summary_payload
             else:
                 summary, _, _ = await summary_task
 
@@ -174,6 +195,7 @@ class FinalRankingService:
                 salary_alignment_reason=build_salary_alignment_reason(interest_result),
                 availability_insight=build_availability_insight(interest_result),
                 recruiter_outreach=recruiter_outreach,
+                engagement_conversation=engagement_conversation,
             )
             ranking = await self.response_validation_service.validate_candidate_ranking(
                 ranking,

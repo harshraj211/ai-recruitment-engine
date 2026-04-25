@@ -86,6 +86,37 @@ def test_deterministic_communication_llm_generates_recruiter_ready_text() -> Non
     assert summary
 
 
+def test_simulated_conversation_returns_interest_signals() -> None:
+    candidate = load_candidate_lookup()["cand-002"]
+    parsed_jd = ParsedJobDescription(
+        raw_text="We are hiring an Applied AI Engineer.",
+        role_title="Applied AI Engineer",
+        mandatory_skills=["Python", "FastAPI", "PyTorch", "Docker", "AWS", "Vector Search"],
+        nice_to_have_skills=["MLflow"],
+        salary_range_usd=[50000, 65000],
+    )
+    match_result = score_candidate_match(parsed_jd, candidate)
+    interest_result = PredictiveEngagementService().score_candidate(candidate, parsed_jd)
+    service = RecruiterCommunicationService(llm=DeterministicCommunicationLLM())
+
+    conversation = asyncio.run(
+        service.generate_simulated_conversation(
+            candidate,
+            parsed_jd,
+            match_result,
+            interest_result,
+        )
+    )
+
+    assert conversation.candidate_id == candidate.id
+    assert conversation.signals.consent_given is True
+    assert conversation.signals.interest_level in {"high", "medium", "low"}
+    assert conversation.signals.salary_alignment == interest_result.salary_alignment
+    assert conversation.signals.availability_days == candidate.availability_days
+    assert len(conversation.transcript) == 8
+    assert "Applied AI Engineer" in conversation.transcript[0].message
+
+
 class HallucinatingSummaryLLM(BaseCommunicationLLM):
     provider = "groq"
     model_name = "fake-groq"
