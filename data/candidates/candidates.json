@@ -1,0 +1,665 @@
+[
+  {
+    "id": "cand-001",
+    "full_name": "Aanya Sharma",
+    "role_title": "Senior Data Scientist",
+    "seniority": "senior",
+    "location": "Bengaluru, India",
+    "total_experience_years": 7,
+    "skills": [
+      "Python",
+      "SQL",
+      "Machine Learning",
+      "XGBoost",
+      "Pandas",
+      "Scikit-learn",
+      "A/B Testing",
+      "Tableau",
+      "AWS"
+    ],
+    "preferred_roles": [
+      "Data Scientist",
+      "Applied Scientist",
+      "ML Engineer"
+    ],
+    "industries": [
+      "Fintech",
+      "SaaS"
+    ],
+    "education": "M.Tech in Data Science",
+    "work_preference": "hybrid",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 62000,
+    "availability_days": 30,
+    "profile_summary": "Built fraud detection and customer propensity models for fintech products. Comfortable turning messy business questions into production-ready ML experiments and stakeholder dashboards."
+  },
+  {
+    "id": "cand-002",
+    "full_name": "Rohan Mehta",
+    "role_title": "Machine Learning Engineer",
+    "seniority": "mid-level",
+    "location": "Pune, India",
+    "total_experience_years": 5,
+    "skills": [
+      "Python",
+      "FastAPI",
+      "PyTorch",
+      "Docker",
+      "MLflow",
+      "AWS",
+      "PostgreSQL",
+      "Feature Engineering"
+    ],
+    "preferred_roles": [
+      "ML Engineer",
+      "Applied AI Engineer",
+      "Backend AI Engineer"
+    ],
+    "industries": [
+      "Healthtech",
+      "SaaS"
+    ],
+    "education": "B.Tech in Computer Science",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 54000,
+    "availability_days": 21,
+    "profile_summary": "Shipped recommendation and classification services with Python APIs, model tracking, and cloud deployment. Enjoys balancing model quality with practical backend engineering."
+  },
+  {
+    "id": "cand-003",
+    "full_name": "Priya Nair",
+    "role_title": "Senior Backend Engineer",
+    "seniority": "senior",
+    "location": "Chennai, India",
+    "total_experience_years": 8,
+    "skills": [
+      "Python",
+      "FastAPI",
+      "Django",
+      "PostgreSQL",
+      "Redis",
+      "Kafka",
+      "Docker",
+      "REST APIs",
+      "System Design"
+    ],
+    "preferred_roles": [
+      "Backend Engineer",
+      "Platform Engineer",
+      "Python Engineer"
+    ],
+    "industries": [
+      "SaaS",
+      "E-commerce"
+    ],
+    "education": "B.E. in Information Technology",
+    "work_preference": "hybrid",
+    "current_status": "passive",
+    "expected_salary_usd": 70000,
+    "availability_days": 45,
+    "profile_summary": "Designed high-volume Python services for order management and internal platforms. Strong at API design, performance tuning, and mentoring junior engineers."
+  },
+  {
+    "id": "cand-004",
+    "full_name": "Vivek Rao",
+    "role_title": "Data Engineer",
+    "seniority": "mid-level",
+    "location": "Hyderabad, India",
+    "total_experience_years": 6,
+    "skills": [
+      "Python",
+      "SQL",
+      "Airflow",
+      "dbt",
+      "Snowflake",
+      "Spark",
+      "AWS",
+      "Data Warehousing"
+    ],
+    "preferred_roles": [
+      "Data Engineer",
+      "Analytics Engineer",
+      "Platform Data Engineer"
+    ],
+    "industries": [
+      "Retail",
+      "Fintech"
+    ],
+    "education": "B.Tech in Electronics and Communication",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 50000,
+    "availability_days": 15,
+    "profile_summary": "Built batch and near-real-time pipelines that power reporting and machine learning features. Focused on reliable ELT workflows, cloud data platforms, and clean data contracts."
+  },
+  {
+    "id": "cand-005",
+    "full_name": "Neha Kapoor",
+    "role_title": "NLP Engineer",
+    "seniority": "mid-level",
+    "location": "Noida, India",
+    "total_experience_years": 4,
+    "skills": [
+      "Python",
+      "Transformers",
+      "SentenceTransformers",
+      "spaCy",
+      "Hugging Face",
+      "FastAPI",
+      "Prompt Engineering",
+      "Information Extraction"
+    ],
+    "preferred_roles": [
+      "NLP Engineer",
+      "LLM Engineer",
+      "Applied AI Engineer"
+    ],
+    "industries": [
+      "HR Tech",
+      "EdTech"
+    ],
+    "education": "M.S. in Artificial Intelligence",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 48000,
+    "availability_days": 14,
+    "profile_summary": "Worked on resume parsing, search relevance, and internal copilots using transformer models. Likes combining classic NLP pipelines with practical LLM features."
+  },
+  {
+    "id": "cand-006",
+    "full_name": "Arjun Verma",
+    "role_title": "Full Stack Engineer",
+    "seniority": "mid-level",
+    "location": "Gurugram, India",
+    "total_experience_years": 5,
+    "skills": [
+      "React",
+      "TypeScript",
+      "Python",
+      "FastAPI",
+      "PostgreSQL",
+      "Docker",
+      "Tailwind CSS",
+      "REST APIs"
+    ],
+    "preferred_roles": [
+      "Full Stack Engineer",
+      "Frontend Engineer",
+      "Product Engineer"
+    ],
+    "industries": [
+      "B2B SaaS",
+      "Marketplace"
+    ],
+    "education": "B.Tech in Computer Science",
+    "work_preference": "hybrid",
+    "current_status": "exploring",
+    "expected_salary_usd": 45000,
+    "availability_days": 30,
+    "profile_summary": "Built recruiter dashboards and workflow tools end to end across React and Python services. Strong at shipping polished internal products quickly."
+  },
+  {
+    "id": "cand-007",
+    "full_name": "Meera Iyer",
+    "role_title": "MLOps Engineer",
+    "seniority": "senior",
+    "location": "Mumbai, India",
+    "total_experience_years": 7,
+    "skills": [
+      "Python",
+      "Docker",
+      "Kubernetes",
+      "MLflow",
+      "Airflow",
+      "AWS",
+      "Terraform",
+      "CI/CD",
+      "Monitoring"
+    ],
+    "preferred_roles": [
+      "MLOps Engineer",
+      "Platform Engineer",
+      "ML Infrastructure Engineer"
+    ],
+    "industries": [
+      "Fintech",
+      "Enterprise SaaS"
+    ],
+    "education": "B.E. in Computer Engineering",
+    "work_preference": "remote",
+    "current_status": "passive",
+    "expected_salary_usd": 76000,
+    "availability_days": 60,
+    "profile_summary": "Owns model deployment pipelines, observability, and infrastructure automation for production machine learning systems. Comfortable with both cloud infra and data science stakeholders."
+  },
+  {
+    "id": "cand-008",
+    "full_name": "Siddharth Jain",
+    "role_title": "DevOps Engineer",
+    "seniority": "mid-level",
+    "location": "Ahmedabad, India",
+    "total_experience_years": 5,
+    "skills": [
+      "AWS",
+      "Docker",
+      "Kubernetes",
+      "Terraform",
+      "Linux",
+      "GitHub Actions",
+      "Prometheus",
+      "Grafana"
+    ],
+    "preferred_roles": [
+      "DevOps Engineer",
+      "Site Reliability Engineer",
+      "Cloud Engineer"
+    ],
+    "industries": [
+      "SaaS",
+      "Gaming"
+    ],
+    "education": "B.Tech in Information Technology",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 47000,
+    "availability_days": 20,
+    "profile_summary": "Improved deployment reliability and cloud cost visibility across containerized workloads. Known for pragmatic automation, clear runbooks, and fast incident response."
+  },
+  {
+    "id": "cand-009",
+    "full_name": "Kavya Reddy",
+    "role_title": "Product Data Analyst",
+    "seniority": "mid-level",
+    "location": "Bengaluru, India",
+    "total_experience_years": 4,
+    "skills": [
+      "SQL",
+      "Python",
+      "Looker",
+      "Tableau",
+      "A/B Testing",
+      "Product Analytics",
+      "Excel",
+      "Stakeholder Communication"
+    ],
+    "preferred_roles": [
+      "Data Analyst",
+      "Product Analyst",
+      "Business Analyst"
+    ],
+    "industries": [
+      "Consumer Apps",
+      "EdTech"
+    ],
+    "education": "B.Sc. in Statistics",
+    "work_preference": "hybrid",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 32000,
+    "availability_days": 10,
+    "profile_summary": "Supports product teams with funnel analysis, experiment readouts, and executive dashboards. Comfortable translating metrics into product decisions."
+  },
+  {
+    "id": "cand-010",
+    "full_name": "Aditya Singh",
+    "role_title": "AI Research Engineer",
+    "seniority": "senior",
+    "location": "Delhi, India",
+    "total_experience_years": 8,
+    "skills": [
+      "Python",
+      "PyTorch",
+      "Transformers",
+      "Retrieval Augmented Generation",
+      "Evaluation",
+      "Vector Databases",
+      "Distributed Training",
+      "Research Prototyping"
+    ],
+    "preferred_roles": [
+      "AI Research Engineer",
+      "Applied Scientist",
+      "Generative AI Engineer"
+    ],
+    "industries": [
+      "AI Platform",
+      "Enterprise SaaS"
+    ],
+    "education": "M.Tech in Computer Science",
+    "work_preference": "remote",
+    "current_status": "exploring",
+    "expected_salary_usd": 90000,
+    "availability_days": 45,
+    "profile_summary": "Prototyped RAG and ranking systems for enterprise search products. Enjoys taking ideas from papers into practical internal tools and evaluation frameworks."
+  },
+  {
+    "id": "cand-011",
+    "full_name": "Isha Menon",
+    "role_title": "Applied Scientist",
+    "seniority": "senior",
+    "location": "Kochi, India",
+    "total_experience_years": 6,
+    "skills": [
+      "Python",
+      "Machine Learning",
+      "NLP",
+      "Recommendation Systems",
+      "Experiment Design",
+      "Scikit-learn",
+      "SQL",
+      "MLOps"
+    ],
+    "preferred_roles": [
+      "Applied Scientist",
+      "Data Scientist",
+      "ML Engineer"
+    ],
+    "industries": [
+      "Marketplace",
+      "Travel Tech"
+    ],
+    "education": "Ph.D. in Computational Linguistics",
+    "work_preference": "remote",
+    "current_status": "passive",
+    "expected_salary_usd": 78000,
+    "availability_days": 60,
+    "profile_summary": "Led search ranking and recommendation initiatives with strong experimentation discipline. Comfortable partnering with engineering and product on measurable ML outcomes."
+  },
+  {
+    "id": "cand-012",
+    "full_name": "Karan Malhotra",
+    "role_title": "Java Backend Engineer",
+    "seniority": "mid-level",
+    "location": "Hyderabad, India",
+    "total_experience_years": 6,
+    "skills": [
+      "Java",
+      "Spring Boot",
+      "Microservices",
+      "MySQL",
+      "Kafka",
+      "Redis",
+      "AWS",
+      "System Design"
+    ],
+    "preferred_roles": [
+      "Backend Engineer",
+      "Platform Engineer",
+      "Java Engineer"
+    ],
+    "industries": [
+      "Banking",
+      "Logistics"
+    ],
+    "education": "B.Tech in Computer Science",
+    "work_preference": "hybrid",
+    "current_status": "exploring",
+    "expected_salary_usd": 52000,
+    "availability_days": 30,
+    "profile_summary": "Built resilient microservices for payments and order processing. Best fit for teams needing strong backend fundamentals and event-driven system experience."
+  },
+  {
+    "id": "cand-013",
+    "full_name": "Tanvi Gupta",
+    "role_title": "Frontend Engineer",
+    "seniority": "mid-level",
+    "location": "Jaipur, India",
+    "total_experience_years": 4,
+    "skills": [
+      "React",
+      "TypeScript",
+      "Next.js",
+      "CSS",
+      "Design Systems",
+      "Testing Library",
+      "Accessibility",
+      "Product Design Collaboration"
+    ],
+    "preferred_roles": [
+      "Frontend Engineer",
+      "Product Engineer",
+      "Full Stack Engineer"
+    ],
+    "industries": [
+      "SaaS",
+      "Creator Economy"
+    ],
+    "education": "B.Des. in Interaction Design",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 36000,
+    "availability_days": 15,
+    "profile_summary": "Builds usable, high-quality web interfaces with strong design sense and frontend testing habits. Particularly effective on dashboards and workflow-heavy products."
+  },
+  {
+    "id": "cand-014",
+    "full_name": "Mohit Arora",
+    "role_title": "Cloud Solutions Engineer",
+    "seniority": "senior",
+    "location": "Singapore",
+    "total_experience_years": 9,
+    "skills": [
+      "AWS",
+      "Azure",
+      "Docker",
+      "Terraform",
+      "Python",
+      "Networking",
+      "Security",
+      "Architecture Reviews"
+    ],
+    "preferred_roles": [
+      "Cloud Engineer",
+      "Solutions Architect",
+      "Platform Engineer"
+    ],
+    "industries": [
+      "Cloud Services",
+      "Enterprise"
+    ],
+    "education": "B.Tech in Computer Science",
+    "work_preference": "onsite",
+    "current_status": "passive",
+    "expected_salary_usd": 115000,
+    "availability_days": 75,
+    "profile_summary": "Supports cloud migrations, architecture reviews, and infrastructure hardening across multi-cloud environments. Strong fit for platform-heavy enterprise teams."
+  },
+  {
+    "id": "cand-015",
+    "full_name": "Sneha Patel",
+    "role_title": "Computer Vision Engineer",
+    "seniority": "mid-level",
+    "location": "Bengaluru, India",
+    "total_experience_years": 5,
+    "skills": [
+      "Python",
+      "PyTorch",
+      "OpenCV",
+      "Computer Vision",
+      "Model Optimization",
+      "ONNX",
+      "FastAPI",
+      "Docker"
+    ],
+    "preferred_roles": [
+      "Computer Vision Engineer",
+      "ML Engineer",
+      "Applied AI Engineer"
+    ],
+    "industries": [
+      "Manufacturing",
+      "Retail Tech"
+    ],
+    "education": "M.Tech in Artificial Intelligence",
+    "work_preference": "hybrid",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 55000,
+    "availability_days": 21,
+    "profile_summary": "Built defect detection and image classification pipelines from model training to service deployment. Comfortable squeezing performance from both models and APIs."
+  },
+  {
+    "id": "cand-016",
+    "full_name": "Yash Bansal",
+    "role_title": "QA Automation Engineer",
+    "seniority": "mid-level",
+    "location": "Indore, India",
+    "total_experience_years": 5,
+    "skills": [
+      "Python",
+      "Playwright",
+      "Selenium",
+      "API Testing",
+      "CI/CD",
+      "Postman",
+      "Test Strategy",
+      "Regression Testing"
+    ],
+    "preferred_roles": [
+      "QA Automation Engineer",
+      "SDET",
+      "Test Engineer"
+    ],
+    "industries": [
+      "SaaS",
+      "E-commerce"
+    ],
+    "education": "B.E. in Computer Engineering",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 34000,
+    "availability_days": 7,
+    "profile_summary": "Automates UI and API test suites for web platforms and internal tools. Brings process discipline and helps teams improve release confidence quickly."
+  },
+  {
+    "id": "cand-017",
+    "full_name": "Pooja Desai",
+    "role_title": "Analytics Engineer",
+    "seniority": "mid-level",
+    "location": "Mumbai, India",
+    "total_experience_years": 5,
+    "skills": [
+      "SQL",
+      "dbt",
+      "Python",
+      "BigQuery",
+      "Looker",
+      "Data Modeling",
+      "Airflow",
+      "Stakeholder Management"
+    ],
+    "preferred_roles": [
+      "Analytics Engineer",
+      "Data Engineer",
+      "Business Intelligence Engineer"
+    ],
+    "industries": [
+      "Consumer Internet",
+      "Fintech"
+    ],
+    "education": "B.Sc. in Mathematics",
+    "work_preference": "hybrid",
+    "current_status": "exploring",
+    "expected_salary_usd": 43000,
+    "availability_days": 20,
+    "profile_summary": "Transforms business metrics into reliable models and self-serve reporting layers. Strong at balancing analyst usability with engineering rigor."
+  },
+  {
+    "id": "cand-018",
+    "full_name": "Rahul Joshi",
+    "role_title": "Generative AI Engineer",
+    "seniority": "mid-level",
+    "location": "Remote, India",
+    "total_experience_years": 4,
+    "skills": [
+      "Python",
+      "FastAPI",
+      "LangChain",
+      "RAG",
+      "Vector Search",
+      "Prompt Engineering",
+      "LLM Evaluation",
+      "AWS"
+    ],
+    "preferred_roles": [
+      "Generative AI Engineer",
+      "LLM Engineer",
+      "Backend AI Engineer"
+    ],
+    "industries": [
+      "HR Tech",
+      "Customer Support AI"
+    ],
+    "education": "B.Tech in Computer Science",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 51000,
+    "availability_days": 14,
+    "profile_summary": "Built chatbot and knowledge search prototypes with retrieval, prompt tuning, and API orchestration. Thrives in fast-moving product teams and hackathon-style delivery."
+  },
+  {
+    "id": "cand-019",
+    "full_name": "Simran Kaur",
+    "role_title": "Python Full Stack Engineer",
+    "seniority": "mid-level",
+    "location": "Chandigarh, India",
+    "total_experience_years": 6,
+    "skills": [
+      "Python",
+      "FastAPI",
+      "React",
+      "TypeScript",
+      "PostgreSQL",
+      "Docker",
+      "AWS",
+      "WebSockets"
+    ],
+    "preferred_roles": [
+      "Full Stack Engineer",
+      "Product Engineer",
+      "Backend Engineer"
+    ],
+    "industries": [
+      "SaaS",
+      "HR Tech"
+    ],
+    "education": "B.Tech in Computer Science",
+    "work_preference": "remote",
+    "current_status": "open_to_work",
+    "expected_salary_usd": 58000,
+    "availability_days": 25,
+    "profile_summary": "Ships customer-facing and internal web products across Python APIs and React frontends. Strong fit for teams that need quick end-to-end execution with clean engineering basics."
+  },
+  {
+    "id": "cand-020",
+    "full_name": "Dev Khanna",
+    "role_title": "Solutions Architect",
+    "seniority": "lead",
+    "location": "Dubai, UAE",
+    "total_experience_years": 11,
+    "skills": [
+      "System Design",
+      "AWS",
+      "Python",
+      "Microservices",
+      "Solution Architecture",
+      "Security",
+      "Pre-sales",
+      "Technical Leadership"
+    ],
+    "preferred_roles": [
+      "Solutions Architect",
+      "Technical Architect",
+      "Engineering Manager"
+    ],
+    "industries": [
+      "Enterprise Software",
+      "Cloud Consulting"
+    ],
+    "education": "B.E. in Software Engineering",
+    "work_preference": "hybrid",
+    "current_status": "passive",
+    "expected_salary_usd": 130000,
+    "availability_days": 90,
+    "profile_summary": "Works with enterprise clients to design scalable cloud-native systems and migration plans. Best suited for senior platform and architecture conversations."
+  }
+]
